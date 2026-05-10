@@ -1,0 +1,113 @@
+{
+  "app": {
+    "title": "CloudPackage",
+    "tagline": "轻量级企业文件管理系统"
+  },
+  "nav": {
+    "files": "文件管理",
+    "search": "搜索",
+    "admin": "管理后台",
+    "settings": "设置"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "logout": "退出",
+    "username": "用户名",
+    "email": "邮箱",
+    "password": "密码",
+    "confirmPassword": "确认密码",
+    "rememberMe": "记住我",
+    "forgotPassword": "忘记密码？",
+    "noAccount": "还没有账号？",
+    "hasAccount": "已有账号？",
+    "loginSuccess": "登录成功",
+    "registerSuccess": "注册成功",
+    "logoutSuccess": "已退出登录"
+  },
+  "file": {
+    "name": "文件名",
+    "size": "大小",
+    "type": "类型",
+    "modified": "修改时间",
+    "actions": "操作",
+    "upload": "上传",
+    "newFolder": "新建文件夹",
+    "delete": "删除",
+    "rename": "重命名",
+    "move": "移动",
+    "copy": "复制",
+    "download": "下载",
+    "share": "分享",
+    "preview": "预览",
+    "edit": "编辑",
+    "search": "搜索文件...",
+    "dropHere": "将文件拖放到此处上传",
+    "confirmDelete": "确定要删除选中的文件吗？",
+    "emptyFolder": "此文件夹为空",
+    "noResults": "没有找到匹配的文件"
+  },
+  "editor": {
+    "save": "保存",
+    "saved": "已保存",
+    "saving": "保存中...",
+    "unsaved": "有未保存的更改",
+    "markdown": "Markdown",
+    "preview": "预览",
+    "fullscreen": "全屏",
+    "exitFullscreen": "退出全屏",
+    "export": "导出"
+  },
+  "share": {
+    "create": "创建分享链接",
+    "shareLink": "分享链接",
+    "copyLink": "复制链接",
+    "copied": "已复制",
+    "password": "密码保护",
+    "expiresAt": "过期时间",
+    "maxAccesses": "最大访问次数",
+    "unlimited": "无限制"
+  },
+  "admin": {
+    "dashboard": "仪表盘",
+    "users": "用户管理",
+    "storage": "存储配置",
+    "tasks": "计划任务",
+    "themes": "主题管理",
+    "webdav": "WebDAV",
+    "audit": "审计日志",
+    "totalUsers": "用户总数",
+    "totalFiles": "文件总数",
+    "totalStorage": "存储使用量",
+    "activeSessions": "活跃会话"
+  },
+  "search": {
+    "placeholder": "搜索文件...",
+    "results": "搜索结果",
+    "noResults": "未找到相关文件",
+    "suggestions": "搜索建议"
+  },
+  "settings": {
+    "profile": "个人资料",
+    "apiKeys": "API 密钥",
+    "changePassword": "修改密码",
+    "language": "语言",
+    "theme": "主题",
+    "darkMode": "暗色模式"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
+    "edit": "编辑",
+    "create": "创建",
+    "close": "关闭",
+    "back": "返回",
+    "loading": "加载中...",
+    "error": "出错了",
+    "success": "操作成功",
+    "noData": "暂无数据",
+    "or": "或"
+  }
+}

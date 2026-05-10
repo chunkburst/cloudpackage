@@ -1,0 +1,17 @@
+{
+  "name": "cloudpackage",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Serverless file management system with Markdown editing, collaboration, WebDAV, and multi-storage support",
+  "scripts": {
+    "dev": "pnpm -r dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r exec tsc --noEmit",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r clean"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

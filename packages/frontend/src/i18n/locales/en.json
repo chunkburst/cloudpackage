@@ -1,0 +1,113 @@
+{
+  "app": {
+    "title": "CloudPackage",
+    "tagline": "Lightweight Enterprise File Management"
+  },
+  "nav": {
+    "files": "Files",
+    "search": "Search",
+    "admin": "Admin",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "logout": "Logout",
+    "username": "Username",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "rememberMe": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "loginSuccess": "Logged in successfully",
+    "registerSuccess": "Registered successfully",
+    "logoutSuccess": "Logged out"
+  },
+  "file": {
+    "name": "Name",
+    "size": "Size",
+    "type": "Type",
+    "modified": "Modified",
+    "actions": "Actions",
+    "upload": "Upload",
+    "newFolder": "New Folder",
+    "delete": "Delete",
+    "rename": "Rename",
+    "move": "Move",
+    "copy": "Copy",
+    "download": "Download",
+    "share": "Share",
+    "preview": "Preview",
+    "edit": "Edit",
+    "search": "Search files...",
+    "dropHere": "Drop files here to upload",
+    "confirmDelete": "Are you sure you want to delete the selected files?",
+    "emptyFolder": "This folder is empty",
+    "noResults": "No matching files found"
+  },
+  "editor": {
+    "save": "Save",
+    "saved": "Saved",
+    "saving": "Saving...",
+    "unsaved": "Unsaved changes",
+    "markdown": "Markdown",
+    "preview": "Preview",
+    "fullscreen": "Fullscreen",
+    "exitFullscreen": "Exit Fullscreen",
+    "export": "Export"
+  },
+  "share": {
+    "create": "Create Share Link",
+    "shareLink": "Share Link",
+    "copyLink": "Copy Link",
+    "copied": "Copied",
+    "password": "Password Protection",
+    "expiresAt": "Expires At",
+    "maxAccesses": "Max Accesses",
+    "unlimited": "Unlimited"
+  },
+  "admin": {
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "storage": "Storage Config",
+    "tasks": "Tasks",
+    "themes": "Themes",
+    "webdav": "WebDAV",
+    "audit": "Audit Log",
+    "totalUsers": "Total Users",
+    "totalFiles": "Total Files",
+    "totalStorage": "Storage Used",
+    "activeSessions": "Active Sessions"
+  },
+  "search": {
+    "placeholder": "Search files...",
+    "results": "Search Results",
+    "noResults": "No results found",
+    "suggestions": "Suggestions"
+  },
+  "settings": {
+    "profile": "Profile",
+    "apiKeys": "API Keys",
+    "changePassword": "Change Password",
+    "language": "Language",
+    "theme": "Theme",
+    "darkMode": "Dark Mode"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "close": "Close",
+    "back": "Back",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "success": "Success",
+    "noData": "No data",
+    "or": "or"
+  }
+}

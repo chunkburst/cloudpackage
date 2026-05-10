@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "moduleResolution": "bundler",
+    "jsx": "preserve",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "noEmit": true,
+    "paths": {
+      "@/*": ["./src/*"],
+      "@cloudpackage/shared": ["../shared/src/index.ts"],
+      "@cloudpackage/shared/types": ["../shared/src/types/index.ts"],
+      "@cloudpackage/shared/validation": ["../shared/src/validation/index.ts"],
+      "@cloudpackage/shared/utils": ["../shared/src/utils/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts", "src/**/*.vue", "env.d.ts"]
+}

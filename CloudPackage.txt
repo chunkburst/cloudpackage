@@ -1,0 +1,67 @@
+CloudPackage： 
+
+基于无服务器架构下的全新文件传输、文本在线编辑(支持Markdown)、团队协助编辑（同时支持多人编辑同一个文本）、超多文件格式在线预览，支持WebDAV挂载。
+
+### 特色功能
+
+#### 后台管理
+
+支持多种用户配置以及游客权限配置
+
+#### 主题配置
+
+支持多种丰富主题（默认开发下只有一种），满足个性化需求等 
+
+#### 储存支持
+
+S3 兼容：Cloudflare R2、Backblaze B2、AWS S3、阿里云 OSS、腾讯云 COS、MinIO 等。
+云存储集成：WebDAV、OneDrive、Google Drive、Telegram、Discord Bot、HuggingFace 数据库、GitHub API/发布（只读）等。
+本地存储：Docker 部署支持本地文件系统
+智能上传：前端预签名直接上传 + 流式上传 + 分块断点续传上传，实时显示上传进度，最大限度减少 CF 限制
+文件预览：直接支持预览 30 多种格式（图像、视频、音频、PDF、Office 文件、代码、电子书等），其他格式可通过外部 IFrame 嵌入KKFileview进行预览。
+计划任务：支持自动执行诸如清理上传会话、存储同步、重建搜索索引等任务。
+统一管理：多存储可视化配置，灵活切换默认存储源
+
+### Markdown 编辑器
+
+Vditor 集成：支持 GitHub 风格的 Markdown、数学公式、流程图和思维导图
+实时预览：所见即所得的编辑体验
+多格式导出：一键导出为 PDF、HTML、PNG、Word 文档
+安全共享：密码保护、过期时间、访问次数限制
+原始直接链接：类似于 GitHub Raw，适用于配置文件托管
+
+### WebDav：
+
+标准协议：支持使用任何 WebDAV 客户端将其挂载为网络驱动器
+完整操作：创建目录、上传文件、删除文件、重命名文件、移动文件
+权限控制：API密钥授权、细粒度访问控制
+缓存优化：可配置 TTL，减少上游请求
+
+### 一键部署
+
+通过 GitHub Actions 一键部署，支持自动触发
+Docker部署：前端和后端镜像 + Docker Compose 一键启动
+
+### 多人协作
+
+按实时websockets、轮询同步处理。
+支持多种冲突处理模式（比如先改先生效）
+
+### 全文搜索
+
+支持在整个站点的文本进行搜索（需要有权限级别）
+
+### 技术栈
+
+框架：Vue.js 3 + Vite
+样式：Tailwind CSS
+编辑：Vditor
+国际化：Vue-i18n
+图表：Chart.js + Vue-chartjs
+
+
+后端
+运行时：Cloudflare Workers
+数据库：Cloudflare D1（SQLite）
+存储：本地与多种与 S3 兼容的服务（支持 R2、B2、AWS S3）【用途为备份和挂载、编辑等】
+身份验证：JWT 令牌 + API 密钥

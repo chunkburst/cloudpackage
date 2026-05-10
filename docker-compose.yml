@@ -1,0 +1,35 @@
+version: '3.9'
+
+services:
+  app:
+    build: .
+    ports:
+      - '8787:8787'
+    environment:
+      NODE_ENV: production
+      STORAGE_DRIVER: local
+      LOCAL_STORAGE_PATH: /data
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      API_KEY_ENCRYPTION_KEY: ${API_KEY_ENCRYPTION_KEY:-change-me-in-production}
+    volumes:
+      - app_data:/data
+    restart: unless-stopped
+
+  # Optional: Local S3-compatible storage (MinIO)
+  minio:
+    image: quay.io/minio/minio:latest
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    profiles:
+      - full
+
+volumes:
+  app_data:
+  minio_data:

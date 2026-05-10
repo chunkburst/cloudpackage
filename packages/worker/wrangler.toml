@@ -1,0 +1,53 @@
+name = "cloudpackage-api"
+main = "src/index.ts"
+compatibility_date = "2025-05-01"
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "cloudpackage-db"
+database_id = "cloudpackage-db-dev"
+
+# R2 Bucket (primary file storage)
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "cloudpackage-files"
+preview_bucket_name = "cloudpackage-files-preview"
+
+# Durable Objects
+[[durable_objects.bindings]]
+name = "COLLABORATION"
+class_name = "CollaborationRoom"
+
+[[durable_objects.bindings]]
+name = "UPLOAD_SESSION"
+class_name = "UploadSession"
+
+[[migrations]]
+tag = "v1"
+new_classes = ["CollaborationRoom", "UploadSession"]
+
+# Cron triggers for scheduled tasks
+[triggers]
+crons = ["*/5 * * * *"]
+
+# Environment variables
+[vars]
+ENVIRONMENT = "development"
+CORS_ORIGINS = "http://localhost:5173,http://localhost:3000"
+RATE_LIMIT_MAX = "100"
+S3_ENDPOINTS = "{}"
+
+# Dev environment
+[env.dev]
+vars = { ENVIRONMENT = "development" }
+
+# Production environment
+[env.production]
+vars = { ENVIRONMENT = "production", CORS_ORIGINS = "https://cloudpackage.pages.dev", RATE_LIMIT_MAX = "1000" }
+
+# Replace with your custom domain
+# [[env.production.routes]]
+# pattern = "api.yourdomain.com/*"
+# zone_id = "your-zone-id"

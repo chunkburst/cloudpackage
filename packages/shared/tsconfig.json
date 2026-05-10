@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "lib": ["ES2022"],
+    "paths": {
+      "@cloudpackage/shared": ["./src/index.ts"],
+      "@cloudpackage/shared/types": ["./src/types/index.ts"],
+      "@cloudpackage/shared/validation": ["./src/validation/index.ts"],
+      "@cloudpackage/shared/utils": ["./src/utils/index.ts"]
+    }
+  },
+  "include": ["src/**/*.ts"]
+}

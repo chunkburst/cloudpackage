@@ -1,0 +1,80 @@
+name: Deploy CloudPackage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  PNPM_VERSION: '10'
+
+jobs:
+  # ── Type check + lint (all branches) ──
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @cloudpackage/worker exec tsc --noEmit
+      - run: pnpm --filter @cloudpackage/frontend exec vue-tsc --noEmit
+
+  # ── Deploy to Cloudflare (main branch only) ──
+  deploy:
+    needs: typecheck
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      # ── Run D1 migrations ──
+      - name: Run D1 migrations
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: packages/worker
+          command: >
+            d1 execute cloudpackage-db
+            --remote
+            --file=src/db/migrations/0001_initial.sql
+
+      # ── Deploy Worker ──
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: packages/worker
+          command: deploy --env production
+
+      # ── Build & Deploy Frontend (Cloudflare Pages) ──
+      - name: Build Frontend
+        run: pnpm --filter @cloudpackage/frontend build
+
+      - name: Deploy Frontend to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CF_API_TOKEN }}
+          accountId: ${{ secrets.CF_ACCOUNT_ID }}
+          workingDirectory: packages/frontend
+          command: pages deploy dist --project-name=cloudpackage --branch=main
