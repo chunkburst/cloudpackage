@@ -1,16 +1,30 @@
-name: Deploy CloudPackage
+name: CloudPackage CI/CD
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: 'Run D1 migrations'
+        type: boolean
+        default: true
+      deploy_worker:
+        description: 'Deploy Worker API'
+        type: boolean
+        default: true
+      deploy_frontend:
+        description: 'Deploy Frontend to Pages'
+        type: boolean
+        default: true
 
 env:
   PNPM_VERSION: '10'
 
 jobs:
-  # ── Type check + lint (all branches) ──
+  # ── Type check — runs on every push and PR ──
   typecheck:
     runs-on: ubuntu-latest
     steps:
@@ -26,10 +40,10 @@ jobs:
       - run: pnpm --filter @cloudpackage/worker exec tsc --noEmit
       - run: pnpm --filter @cloudpackage/frontend exec vue-tsc --noEmit
 
-  # ── Deploy to Cloudflare (main branch only) ──
+  # ── Deploy — manual trigger only ──
   deploy:
     needs: typecheck
-    if: github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -46,8 +60,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      # ── Run D1 migrations ──
+      # ── D1 Migrations ──
       - name: Run D1 migrations
+        if: inputs.run_migrations
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
@@ -59,7 +74,8 @@ jobs:
             --file=src/db/migrations/0001_initial.sql
 
       # ── Deploy Worker ──
-      - name: Deploy Worker
+      - name: Deploy Worker API
+        if: inputs.deploy_worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
@@ -67,11 +83,13 @@ jobs:
           workingDirectory: packages/worker
           command: deploy --env production
 
-      # ── Build & Deploy Frontend (Cloudflare Pages) ──
+      # ── Build & Deploy Frontend ──
       - name: Build Frontend
+        if: inputs.deploy_frontend
         run: pnpm --filter @cloudpackage/frontend build
 
-      - name: Deploy Frontend to Cloudflare Pages
+      - name: Deploy Frontend to Pages
+        if: inputs.deploy_frontend
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
