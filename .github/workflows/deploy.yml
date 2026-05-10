@@ -72,23 +72,29 @@ jobs:
 
       # ── Setup Cloudflare resources (create if not exist) ──
       - name: Setup D1 database
+        id: setup-d1
         if: steps.secrets.outputs.ready == 'true'
         env:
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
         run: |
-          echo "Checking D1 database..."
-          DB_EXISTS=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/d1/database" \
-            -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[] | select(.name=="cloudpackage-db") | .name')
-          if [ -z "$DB_EXISTS" ]; then
+          echo "Looking up D1 database cloudpackage-db..."
+          DB_UUID=$(curl -sf "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/d1/database" \
+            -H "Authorization: Bearer $CF_API_TOKEN" | jq -r '.result[] | select(.name=="cloudpackage-db") | .uuid')
+          if [ -z "$DB_UUID" ]; then
             echo "Creating D1 database: cloudpackage-db"
-            curl -sf -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/d1/database" \
+            RESULT=$(curl -sf -X POST "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/d1/database" \
               -H "Authorization: Bearer $CF_API_TOKEN" \
               -H "Content-Type: application/json" \
-              -d '{"name":"cloudpackage-db"}' | jq .
+              -d '{"name":"cloudpackage-db"}')
+            echo "$RESULT" | jq .
+            DB_UUID=$(echo "$RESULT" | jq -r '.result.uuid')
           else
-            echo "D1 database cloudpackage-db already exists"
+            echo "D1 database cloudpackage-db already exists (uuid: $DB_UUID)"
           fi
+          echo "Injecting database_id into wrangler.toml..."
+          sed -i "/database_name = \"cloudpackage-db\"/a database_id = \"$DB_UUID\"" packages/worker/wrangler.toml
+          echo "Updated wrangler.toml with database_id: $DB_UUID"
 
       - name: Setup R2 bucket
         if: steps.secrets.outputs.ready == 'true'
