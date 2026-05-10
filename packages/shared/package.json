@@ -2,6 +2,8 @@
   "name": "@cloudpackage/shared",
   "version": "1.0.0",
   "type": "module",
+  "author": "chunkburst <chunkburst@outlook.com>",
+  "license": "MIT",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {

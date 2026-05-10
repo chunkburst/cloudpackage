@@ -3,6 +3,8 @@
   "private": true,
   "version": "1.0.0",
   "description": "Serverless file management system with Markdown editing, collaboration, WebDAV, and multi-storage support",
+  "author": "chunkburst <chunkburst@outlook.com>",
+  "license": "MIT",
   "scripts": {
     "dev": "pnpm -r dev",
     "build": "pnpm -r build",

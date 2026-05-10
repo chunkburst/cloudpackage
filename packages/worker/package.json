@@ -2,6 +2,8 @@
   "name": "@cloudpackage/worker",
   "version": "1.0.0",
   "type": "module",
+  "author": "chunkburst <chunkburst@outlook.com>",
+  "license": "MIT",
   "scripts": {
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run",
