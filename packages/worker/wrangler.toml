@@ -7,7 +7,6 @@ compatibility_flags = ["nodejs_compat"]
 [[d1_databases]]
 binding = "DB"
 database_name = "cloudpackage-db"
-database_id = "cloudpackage-db-dev"
 
 # R2 Bucket (primary file storage)
 [[r2_buckets]]
