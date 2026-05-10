@@ -40,14 +40,24 @@ jobs:
       - run: pnpm --filter @cloudpackage/worker exec tsc --noEmit
       - run: pnpm --filter @cloudpackage/frontend exec vue-tsc --noEmit
 
-  # ── Deploy — manual trigger only ──
+  # ── Deploy — auto on push to main, manual via workflow_dispatch ──
   deploy:
     needs: typecheck
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     environment: production
     steps:
       - uses: actions/checkout@v4
+
+      - name: Check Cloudflare secrets
+        id: secrets
+        run: |
+          if [ -n "${{ secrets.CF_API_TOKEN }}" ] && [ -n "${{ secrets.CF_ACCOUNT_ID }}" ]; then
+            echo "ready=true" >> $GITHUB_OUTPUT
+          else
+            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "::warning::CF_API_TOKEN or CF_ACCOUNT_ID secret not set — skipping deployment"
+          fi
 
       - uses: pnpm/action-setup@v4
         with:
@@ -62,7 +72,7 @@ jobs:
 
       # ── D1 Migrations ──
       - name: Run D1 migrations
-        if: inputs.run_migrations
+        if: steps.secrets.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
@@ -75,7 +85,7 @@ jobs:
 
       # ── Deploy Worker ──
       - name: Deploy Worker API
-        if: inputs.deploy_worker
+        if: steps.secrets.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
@@ -85,11 +95,11 @@ jobs:
 
       # ── Build & Deploy Frontend ──
       - name: Build Frontend
-        if: inputs.deploy_frontend
+        if: steps.secrets.outputs.ready == 'true'
         run: pnpm --filter @cloudpackage/frontend build
 
       - name: Deploy Frontend to Pages
-        if: inputs.deploy_frontend
+        if: steps.secrets.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
