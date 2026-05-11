@@ -30,14 +30,17 @@ export class AuthService {
       throw new ConflictError('Username or email already exists');
     }
 
+    const userCountResult = await this.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+    const role: UserRow['role'] = userCountResult?.count === 0 ? 'admin' : 'user';
+
     const id = crypto.randomUUID();
     const passwordHash = await this.hashPassword(dto.password);
 
     await this.env.DB.prepare(
-      `INSERT INTO users (id, username, email, password_hash, display_name)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO users (id, username, email, password_hash, display_name, role)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
-      .bind(id, dto.username, dto.email, passwordHash, dto.display_name || null)
+      .bind(id, dto.username, dto.email, passwordHash, dto.display_name || null, role)
       .run();
 
     const user: UserRow = {
@@ -47,7 +50,7 @@ export class AuthService {
       password_hash: passwordHash,
       display_name: dto.display_name || null,
       avatar_url: null,
-      role: 'user',
+      role,
       storage_quota: 1073741824,
       used_storage: 0,
       is_active: 1,
