@@ -154,6 +154,8 @@ jobs:
       # ── Build & Deploy Frontend ──
       - name: Build Frontend
         if: steps.secrets.outputs.ready == 'true'
+        env:
+          VITE_API_BASE_URL: https://cloudpackage-api-production.yimoex.workers.dev/api
         run: pnpm --filter @cloudpackage/frontend build
 
       - name: Setup Pages project

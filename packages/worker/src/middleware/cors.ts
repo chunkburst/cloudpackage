@@ -9,7 +9,7 @@ export function corsMiddleware(originsStr: string) {
   return async (c: Context, next: Next) => {
     const origin = c.req.header('Origin');
 
-    if (origin && (allowedOrigins.includes('*') || allowedOrigins.includes(origin))) {
+    if (origin && isAllowedOrigin(origin, allowedOrigins)) {
       c.res.headers.set('Access-Control-Allow-Origin', origin);
       c.res.headers.set('Access-Control-Allow-Credentials', 'true');
       c.res.headers.set('Access-Control-Max-Age', '86400');
@@ -29,4 +29,12 @@ export function corsMiddleware(originsStr: string) {
 
     await next();
   };
+}
+
+function isAllowedOrigin(origin: string, allowedOrigins: string[]): boolean {
+  return (
+    allowedOrigins.includes('*') ||
+    allowedOrigins.includes(origin) ||
+    (origin.endsWith('.cloudpackage.pages.dev') && allowedOrigins.includes('https://*.cloudpackage.pages.dev'))
+  );
 }

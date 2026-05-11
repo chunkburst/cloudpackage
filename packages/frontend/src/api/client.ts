@@ -4,7 +4,7 @@ interface RequestOptions extends RequestInit {
   skipAuth?: boolean;
 }
 
-const BASE_URL = '/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export async function apiClient<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const { skipAuth, ...init } = options;

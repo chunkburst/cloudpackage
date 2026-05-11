@@ -44,7 +44,7 @@ vars = { ENVIRONMENT = "development" }
 
 # Production environment
 [env.production]
-vars = { ENVIRONMENT = "production", CORS_ORIGINS = "https://cloudpackage.pages.dev", RATE_LIMIT_MAX = "1000", S3_ENDPOINTS = "{}" }
+vars = { ENVIRONMENT = "production", CORS_ORIGINS = "https://cloudpackage.pages.dev,https://*.cloudpackage.pages.dev", RATE_LIMIT_MAX = "1000", S3_ENDPOINTS = "{}" }
 
 [[env.production.d1_databases]]
 binding = "DB"
