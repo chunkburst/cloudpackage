@@ -9,22 +9,14 @@ interface RateWindow {
 }
 
 const store = new Map<string, RateWindow>();
-
-// Cleanup old entries every 5 minutes
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, window] of store) {
-    if (window.resetAt < now) {
-      store.delete(key);
-    }
-  }
-}, 300000);
+let nextCleanupAt = 0;
 
 export function rateLimiter() {
   return async (c: Context<{ Bindings: Env; Variables: { user?: AuthUser } }>, next: Next) => {
     const maxRequests = parseInt(c.env.RATE_LIMIT_MAX, 10) || 100;
     const key = getClientKey(c);
     const now = Date.now();
+    cleanupExpiredWindows(now);
     const windowMs = 60000;
 
     let window = store.get(key);
@@ -46,6 +38,18 @@ export function rateLimiter() {
 
     await next();
   };
+}
+
+function cleanupExpiredWindows(now: number): void {
+  if (now < nextCleanupAt) return;
+
+  for (const [key, window] of store) {
+    if (window.resetAt < now) {
+      store.delete(key);
+    }
+  }
+
+  nextCleanupAt = now + 300000;
 }
 
 function getClientKey(c: Context<{ Bindings: Env; Variables: { user?: AuthUser } }>): string {
