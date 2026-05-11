@@ -25,7 +25,7 @@ class_name = "UploadSession"
 
 [[migrations]]
 tag = "v1"
-new_classes = ["CollaborationRoom", "UploadSession"]
+new_sqlite_classes = ["CollaborationRoom", "UploadSession"]
 
 # Cron triggers for scheduled tasks
 [triggers]
@@ -44,7 +44,24 @@ vars = { ENVIRONMENT = "development" }
 
 # Production environment
 [env.production]
-vars = { ENVIRONMENT = "production", CORS_ORIGINS = "https://cloudpackage.pages.dev", RATE_LIMIT_MAX = "1000" }
+vars = { ENVIRONMENT = "production", CORS_ORIGINS = "https://cloudpackage.pages.dev", RATE_LIMIT_MAX = "1000", S3_ENDPOINTS = "{}" }
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "cloudpackage-db"
+
+[[env.production.r2_buckets]]
+binding = "BUCKET"
+bucket_name = "cloudpackage-files"
+preview_bucket_name = "cloudpackage-files-preview"
+
+[[env.production.durable_objects.bindings]]
+name = "COLLABORATION"
+class_name = "CollaborationRoom"
+
+[[env.production.durable_objects.bindings]]
+name = "UPLOAD_SESSION"
+class_name = "UploadSession"
 
 # Replace with your custom domain
 # [[env.production.routes]]

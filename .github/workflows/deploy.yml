@@ -93,7 +93,23 @@ jobs:
             echo "D1 database cloudpackage-db already exists (uuid: $DB_UUID)"
           fi
           echo "Injecting database_id into wrangler.toml..."
-          sed -i "/database_name = \"cloudpackage-db\"/a database_id = \"$DB_UUID\"" packages/worker/wrangler.toml
+          export DB_UUID
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          db_uuid = os.environ['DB_UUID']
+          path = Path('packages/worker/wrangler.toml')
+          lines = path.read_text().splitlines()
+          output = []
+          for index, line in enumerate(lines):
+              if line.strip().startswith('database_id ='):
+                  continue
+              output.append(line)
+              if line.strip() == 'database_name = "cloudpackage-db"':
+                  output.append(f'database_id = "{db_uuid}"')
+          path.write_text('\n'.join(output) + '\n')
+          PY
           echo "Updated wrangler.toml with database_id: $DB_UUID"
 
       - name: Setup R2 bucket
