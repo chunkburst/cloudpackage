@@ -33,6 +33,15 @@ export interface JwtPayload {
 export interface AuthUser {
   id: string;
   username: string;
+  email: string;
+  display_name: string | null;
+  avatar_url: string | null;
   role: 'admin' | 'user' | 'viewer';
-  authMethod: 'jwt' | 'apikey';
+  storage_quota: number;
+  used_storage: number;
+  is_active: number;
+  last_login_at: string | null;
+  created_at: string;
+  updated_at: string;
+  authMethod?: 'jwt' | 'apikey';
 }

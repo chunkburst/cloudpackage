@@ -3,6 +3,7 @@
 import { S3StorageDriver } from '../drivers/storage/s3.js';
 import { WebdavStorageDriver } from '../drivers/storage/webdav.js';
 import { LocalStorageDriver } from '../drivers/storage/local.js';
+import { R2StorageDriver } from '../drivers/storage/r2.js';
 import type { StorageDriver, ObjectMeta, ListOptions } from '../drivers/storage/base.js';
 import type { StorageConfigRow } from '@cloudpackage/shared/types';
 import { NotFoundError, StorageError } from '@cloudpackage/shared';
@@ -20,6 +21,10 @@ export class StorageService {
   constructor(private env: Env) {}
 
   async init(): Promise<void> {
+    this.drivers.clear();
+    this.defaultId = null;
+    await this.ensureDefaultR2Config();
+
     const configs = await this.env.DB.prepare(
       'SELECT * FROM storage_configs WHERE is_active = 1 ORDER BY priority ASC'
     ).all<StorageConfigRow>();
@@ -36,24 +41,64 @@ export class StorageService {
     }
   }
 
+  private async ensureDefaultR2Config(): Promise<void> {
+    const existing = await this.env.DB.prepare(
+      "SELECT id FROM storage_configs WHERE id = ? OR (name = 'Cloudflare R2' AND mount_point = '/') LIMIT 1"
+    )
+      .bind('00000000-0000-4000-8000-000000000020')
+      .first<{ id: string }>();
+
+    if (existing) return;
+
+    const activeCount = await this.env.DB.prepare(
+      'SELECT COUNT(*) as count FROM storage_configs WHERE is_active = 1'
+    ).first<{ count: number }>();
+
+    const isDefault = (activeCount?.count || 0) === 0 ? 1 : 0;
+    const configJson = JSON.stringify({ binding: 'BUCKET' });
+
+    try {
+      await this.insertDefaultR2Config('r2', isDefault, configJson);
+    } catch {
+      await this.insertDefaultR2Config('s3', isDefault, configJson);
+    }
+  }
+
+  private async insertDefaultR2Config(driver: StorageConfigRow['driver'], isDefault: number, configJson: string): Promise<void> {
+    await this.env.DB.prepare(
+      `INSERT INTO storage_configs (id, name, driver, is_default, is_active, config_json, mount_point, priority, created_by)
+       VALUES (?, 'Cloudflare R2', ?, ?, 1, ?, '/', 0, NULL)`
+    )
+      .bind('00000000-0000-4000-8000-000000000020', driver, isDefault, configJson)
+      .run();
+  }
+
   private async registerDriver(config: StorageConfigRow): Promise<void> {
     let driver: StorageDriver;
+    const parsedConfig = JSON.parse(config.config_json) as Record<string, unknown>;
 
-    switch (config.driver) {
-      case 's3':
-        driver = new S3StorageDriver();
-        break;
-      case 'webdav':
-        driver = new WebdavStorageDriver();
-        break;
-      case 'local':
-        driver = new LocalStorageDriver();
-        break;
-      default:
-        throw new Error(`Unknown storage driver type: ${config.driver}`);
+    if (parsedConfig.binding === 'BUCKET') {
+      driver = new R2StorageDriver(this.env.BUCKET);
+    } else {
+      switch (config.driver) {
+        case 's3':
+          driver = new S3StorageDriver();
+          break;
+        case 'webdav':
+          driver = new WebdavStorageDriver();
+          break;
+        case 'local':
+          driver = new LocalStorageDriver();
+          break;
+        case 'r2':
+          driver = new R2StorageDriver(this.env.BUCKET);
+          break;
+        default:
+          throw new Error(`Unknown storage driver type: ${config.driver}`);
+      }
     }
 
-    await driver.init(JSON.parse(config.config_json));
+    await driver.init(parsedConfig);
     this.drivers.set(config.id, { driver, config });
   }
 

@@ -16,15 +16,25 @@
     </div>
     <AppFooter />
 
-    <!-- Uploader modal -->
     <Modal v-if="showUploader" :open="showUploader" title="Upload Files" @close="showUploader = false">
       <FileUploader @files="handleUpload" />
     </Modal>
 
-    <!-- Context menu -->
+    <Modal v-if="showNewFolder" :open="showNewFolder" :title="$t('file.newFolder')" size="sm" @close="showNewFolder = false">
+      <form class="space-y-4" @submit.prevent="createFolder">
+        <div>
+          <label class="label" for="folder-name">{{ $t('file.name') }}</label>
+          <input id="folder-name" v-model="newFolderName" type="text" class="input" required />
+        </div>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn-secondary" @click="showNewFolder = false">{{ $t('common.cancel') }}</button>
+          <button type="submit" class="btn-primary">{{ $t('common.create') }}</button>
+        </div>
+      </form>
+    </Modal>
+
     <FileContextMenu ref="contextMenuRef" :items="contextMenuItems" />
 
-    <!-- Confirm delete -->
     <ConfirmDialog
       :open="showDeleteConfirm"
       :title="$t('file.delete')"
@@ -34,16 +44,14 @@
       @cancel="showDeleteConfirm = false"
     />
 
-    <!-- Rename dialog -->
     <FileRenameDialog
-      v-if="renameTarget"
-      :open="!!renameTarget"
-      :current-name="renameTarget"
-      @close="renameTarget = null"
+      v-if="renameTargetName"
+      :open="!!renameTargetName"
+      :current-name="renameTargetName"
+      @close="clearRenameTarget"
       @rename="handleRename"
     />
 
-    <!-- Toast -->
     <Toast />
   </div>
 </template>
@@ -73,13 +81,15 @@ const ui = useUiStore();
 const showUploader = ref(false);
 const showDeleteConfirm = ref(false);
 const showNewFolder = ref(false);
-const renameTarget = ref<string | null>(null);
+const newFolderName = ref('');
+const renameTargetId = ref<string | null>(null);
+const renameTargetName = ref<string | null>(null);
 const contextMenuRef = ref<InstanceType<typeof FileContextMenu> | null>(null);
 const contextMenuFileId = ref<string | null>(null);
 
 const contextMenuItems = computed(() => [
   { label: 'Open', action: 'open', handler: () => handleOpen(contextMenuFileId.value!) },
-  { label: 'Rename', action: 'rename', handler: () => { renameTarget.value = store.files.find((f) => f.id === contextMenuFileId.value)?.name || ''; } },
+  { label: 'Rename', action: 'rename', handler: () => startRename(contextMenuFileId.value!) },
   { label: 'Share', action: 'share', handler: () => router.push(`/share/${contextMenuFileId.value}`) },
   { label: 'Delete', action: 'delete', handler: () => { store.toggleSelect(contextMenuFileId.value!); showDeleteConfirm.value = true; }, danger: true },
 ]);
@@ -106,20 +116,31 @@ async function handleUpload(files: File[]): Promise<void> {
   for (const file of files) {
     const form = new FormData();
     form.append('file', file);
-    // Simplified — in production use multipart presigned upload
+    if (store.parentId) form.append('parent_id', store.parentId);
+
     try {
-      const initRes = await apiClient<{ success: boolean; data: { uploadUrl: string; fileId: string } }>(
-        `/files/${store.parentId || 'root'}/upload/init`,
-        { method: 'POST', body: JSON.stringify({ name: file.name, size: file.size, mime_type: file.type }) }
-      );
-      await fetch(initRes.data.uploadUrl, { method: 'PUT', body: file });
-      await apiClient(`/files/${initRes.data.fileId}/upload/complete`, { method: 'POST' });
+      await apiClient('/files/upload', { method: 'POST', body: form });
       ui.addToast('success', `Uploaded: ${file.name}`);
-    } catch {
-      ui.addToast('error', `Failed: ${file.name}`);
+    } catch (e) {
+      ui.addToast('error', `Failed: ${file.name}: ${(e as Error).message}`);
     }
   }
-  store.loadFiles(store.parentId);
+  await store.loadFiles(store.parentId);
+}
+
+async function createFolder(): Promise<void> {
+  const name = newFolderName.value.trim();
+  if (!name) return;
+
+  await apiClient('/files', {
+    method: 'POST',
+    body: JSON.stringify({ name, parent_id: store.parentId, is_directory: true }),
+  });
+
+  newFolderName.value = '';
+  showNewFolder.value = false;
+  await store.loadFiles(store.parentId);
+  ui.addToast('success', 'Folder created');
 }
 
 async function deleteSelected(): Promise<void> {
@@ -132,20 +153,29 @@ async function confirmDelete(): Promise<void> {
     await apiClient(`/files/${id}`, { method: 'DELETE' });
   }
   store.clearSelection();
-  store.loadFiles(store.parentId);
+  await store.loadFiles(store.parentId);
   ui.addToast('success', 'Deleted');
 }
 
+function startRename(fileId: string): void {
+  const file = store.files.find((f) => f.id === fileId);
+  if (!file) return;
+  renameTargetId.value = file.id;
+  renameTargetName.value = file.name;
+}
+
+function clearRenameTarget(): void {
+  renameTargetId.value = null;
+  renameTargetName.value = null;
+}
+
 async function handleRename(newName: string): Promise<void> {
-  if (renameTarget.value) {
-    const file = store.files.find((f) => f.name === renameTarget.value);
-    if (file) {
-      await apiClient(`/files/${file.id}`, { method: 'PUT', body: JSON.stringify({ name: newName }) });
-      store.loadFiles(store.parentId);
-      ui.addToast('success', 'Renamed');
-    }
+  if (renameTargetId.value) {
+    await apiClient(`/files/${renameTargetId.value}`, { method: 'PUT', body: JSON.stringify({ name: newName }) });
+    await store.loadFiles(store.parentId);
+    ui.addToast('success', 'Renamed');
   }
-  renameTarget.value = null;
+  clearRenameTarget();
 }
 
 onMounted(() => {

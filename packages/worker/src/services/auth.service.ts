@@ -11,15 +11,49 @@ import {
 import { API_KEY_PREFIX, API_KEY_LENGTH, JWT_EXPIRY_SECONDS } from '@cloudpackage/shared';
 import type { Env } from '../env.js';
 
+type PublicUser = Omit<UserRow, 'password_hash'>;
+
+const DEFAULT_ADMIN = {
+  id: '00000000-0000-4000-8000-000000000001',
+  username: 'admin',
+  email: 'admin@ccb.rip',
+  password: 'admin123',
+  displayName: 'Administrator',
+  storageQuota: 10737418240,
+} as const;
+
 export class AuthService {
   constructor(private env: Env) {}
+
+  async bootstrapDefaultAdmin(): Promise<void> {
+    const userCountResult = await this.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
+    if ((userCountResult?.count || 0) > 0) return;
+
+    const passwordHash = await this.hashPassword(DEFAULT_ADMIN.password);
+    await this.env.DB.prepare(
+      `INSERT INTO users (id, username, email, password_hash, display_name, role, storage_quota, is_active)
+       SELECT ?, ?, ?, ?, ?, 'admin', ?, 1
+       WHERE NOT EXISTS (SELECT 1 FROM users)`
+    )
+      .bind(
+        DEFAULT_ADMIN.id,
+        DEFAULT_ADMIN.username,
+        DEFAULT_ADMIN.email,
+        passwordHash,
+        DEFAULT_ADMIN.displayName,
+        DEFAULT_ADMIN.storageQuota
+      )
+      .run();
+  }
 
   async register(dto: {
     username: string;
     email: string;
     password: string;
     display_name?: string;
-  }): Promise<{ user: UserRow; token: string }> {
+  }): Promise<{ user: PublicUser; token: string }> {
+    await this.bootstrapDefaultAdmin();
+
     const existing = await this.env.DB.prepare(
       'SELECT id FROM users WHERE username = ? OR email = ?'
     )
@@ -30,17 +64,15 @@ export class AuthService {
       throw new ConflictError('Username or email already exists');
     }
 
-    const userCountResult = await this.env.DB.prepare('SELECT COUNT(*) as count FROM users').first<{ count: number }>();
-    const role: UserRow['role'] = userCountResult?.count === 0 ? 'admin' : 'user';
-
     const id = crypto.randomUUID();
     const passwordHash = await this.hashPassword(dto.password);
+    const now = new Date().toISOString();
 
     await this.env.DB.prepare(
       `INSERT INTO users (id, username, email, password_hash, display_name, role)
-       VALUES (?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, 'user')`
     )
-      .bind(id, dto.username, dto.email, passwordHash, dto.display_name || null, role)
+      .bind(id, dto.username, dto.email, passwordHash, dto.display_name || null)
       .run();
 
     const user: UserRow = {
@@ -50,23 +82,25 @@ export class AuthService {
       password_hash: passwordHash,
       display_name: dto.display_name || null,
       avatar_url: null,
-      role,
+      role: 'user',
       storage_quota: 1073741824,
       used_storage: 0,
       is_active: 1,
-      last_login_at: new Date().toISOString(),
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      last_login_at: now,
+      created_at: now,
+      updated_at: now,
     };
 
     const token = await this.issueJwt(user);
-    return { user, token };
+    return { user: this.toPublicUser(user), token };
   }
 
   async login(dto: {
     username: string;
     password: string;
-  }): Promise<{ user: UserRow; token: string }> {
+  }): Promise<{ user: PublicUser; token: string }> {
+    await this.bootstrapDefaultAdmin();
+
     const user = await this.env.DB.prepare(
       'SELECT * FROM users WHERE (username = ? OR email = ?) AND is_active = 1'
     )
@@ -89,7 +123,7 @@ export class AuthService {
       .run();
 
     const token = await this.issueJwt(user);
-    return { user, token };
+    return { user: this.toPublicUser(user), token };
   }
 
   async validateToken(token: string): Promise<JwtPayload> {
@@ -109,6 +143,10 @@ export class AuthService {
 
     if (!user) throw new NotFoundError('User', userId);
     return user;
+  }
+
+  async getPublicUserById(userId: string): Promise<PublicUser> {
+    return this.toPublicUser(await this.getUserById(userId));
   }
 
   async createApiKey(
@@ -188,16 +226,22 @@ export class AuthService {
       .run();
   }
 
-  async refreshToken(userId: string): Promise<{ token: string }> {
+  async refreshToken(userId: string): Promise<{ user: PublicUser; token: string }> {
     const user = await this.getUserById(userId);
-    return { token: await this.issueJwt(user) };
+    return { user: this.toPublicUser(user), token: await this.issueJwt(user) };
   }
 
   // ==============================
   // Private helpers
   // ==============================
 
-  private async issueJwt(user: UserRow): Promise<string> {
+  private toPublicUser(user: UserRow): PublicUser {
+    const publicUser = { ...user } as Partial<UserRow>;
+    delete publicUser.password_hash;
+    return publicUser as PublicUser;
+  }
+
+  private async issueJwt(user: Pick<UserRow, 'id' | 'username' | 'role'>): Promise<string> {
     const secret = new TextEncoder().encode(this.env.JWT_SECRET);
     const now = Math.floor(Date.now() / 1000);
 

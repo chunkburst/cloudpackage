@@ -81,6 +81,17 @@ export class FileService {
     return file;
   }
 
+  async getFileWithContent(fileId: string, userId: string): Promise<FileRow & { content?: string }> {
+    const file = await this.getFile(fileId, userId);
+    if (file.is_directory || !file.storage_id || !file.storage_key || !this.isTextFile(file)) {
+      return file;
+    }
+
+    const { body } = await this.storage.getObject(file.storage_id, file.storage_key);
+    const content = await new Response(body).text();
+    return { ...file, content };
+  }
+
   // ==============================
   // Create / Update
   // ==============================
@@ -187,6 +198,32 @@ export class FileService {
   // Upload
   // ==============================
 
+  async uploadFile(
+    parentId: string | null,
+    file: File,
+    userId: string
+  ): Promise<FileRow> {
+    const created = await this.createFile(parentId, file.name, userId);
+    const storageKey = this.buildStorageKey(userId, created.id, file.name);
+    const bytes = await file.arrayBuffer();
+    const checksum = await this.calculateChecksum(bytes);
+
+    await this.storage.putObject(created.storage_id!, storageKey, bytes, {
+      mimeType: file.type || 'application/octet-stream',
+      size: file.size,
+    });
+
+    await this.updateUploadedFile(
+      created,
+      storageKey,
+      file.size,
+      file.type || 'application/octet-stream',
+      checksum
+    );
+
+    return this.getFile(created.id, userId);
+  }
+
   async getPresignedUploadUrl(
     fileId: string,
     userId: string,
@@ -215,20 +252,14 @@ export class FileService {
     size: number,
     checksum?: string
   ): Promise<FileRow> {
-    await this.getFile(fileId, userId);
-
-    await this.env.DB.prepare(
-      `UPDATE files SET storage_key = ?, size = ?, checksum = ?, version = version + 1, updated_at = datetime('now') WHERE id = ?`
-    )
-      .bind(key, size, checksum || null, fileId)
-      .run();
-
-    // Update user storage usage
-    await this.env.DB.prepare(
-      'UPDATE users SET used_storage = used_storage + ? WHERE id = ?'
-    )
-      .bind(size, userId)
-      .run();
+    const file = await this.getFile(fileId, userId);
+    await this.updateUploadedFile(
+      file,
+      key,
+      size,
+      file.mime_type || 'application/octet-stream',
+      checksum || null
+    );
 
     return this.getFile(fileId, userId);
   }
@@ -348,21 +379,25 @@ export class FileService {
     const file = await this.getFile(fileId, userId);
     await this.checkAccess(file, userId, 'write');
 
-    // Delete storage object if exists
-    if (file.storage_id && file.storage_key) {
-      await this.storage.deleteObject(file.storage_id, file.storage_key).catch(() => {
-        // Storage deletion failure shouldn't block metadata deletion
-      });
+    const files = await this.collectFilesForDeletion(file);
+    for (const item of files) {
+      if (item.storage_id && item.storage_key) {
+        await this.storage.deleteObject(item.storage_id, item.storage_key).catch(() => {});
+      }
     }
 
-    await this.env.DB.prepare('DELETE FROM files WHERE id = ?').bind(fileId).run();
+    await this.env.DB.prepare(
+      'DELETE FROM files WHERE owner_id = ? AND (path = ? OR path LIKE ?)'
+    )
+      .bind(file.owner_id, file.path, `${file.path}/%`)
+      .run();
 
-    // Update user storage usage
-    if (file.size > 0) {
+    const deletedSize = files.reduce((total, item) => total + item.size, 0);
+    if (deletedSize > 0) {
       await this.env.DB.prepare(
         'UPDATE users SET used_storage = MAX(0, used_storage - ?) WHERE id = ?'
       )
-        .bind(file.size, userId)
+        .bind(deletedSize, userId)
         .run();
     }
   }
@@ -383,6 +418,9 @@ export class FileService {
         .bind(newParentId)
         .first<FileRow>();
       if (!parent) throw new NotFoundError('Directory', newParentId);
+      if (newParentId === fileId || parent.path.startsWith(`${file.path}/`)) {
+        throw new ValidationError('Cannot move a directory into itself');
+      }
     }
 
     const name = newName || file.name;
@@ -396,6 +434,24 @@ export class FileService {
     )
       .bind(newParentId, name, newPath, fileId)
       .run();
+
+    if (file.is_directory) {
+      const oldPath = file.path;
+      const childPrefix = `${oldPath}/`;
+      const children = await this.env.DB.prepare(
+        'SELECT id, path FROM files WHERE owner_id = ? AND path LIKE ?'
+      )
+        .bind(file.owner_id, `${childPrefix}%`)
+        .all<{ id: string; path: string }>();
+
+      for (const child of children.results) {
+        await this.env.DB.prepare(
+          "UPDATE files SET path = ?, updated_at = datetime('now') WHERE id = ?"
+        )
+          .bind(`${newPath}/${child.path.slice(childPrefix.length)}`, child.id)
+          .run();
+      }
+    }
 
     return this.getFile(fileId, userId);
   }
@@ -416,17 +472,20 @@ export class FileService {
     );
 
     if (file.storage_id && file.storage_key) {
-      const newKey = copy.path;
+      const newKey = this.buildStorageKey(userId, copy.id, file.name);
       const { body } = await this.storage.getObject(file.storage_id, file.storage_key!);
       await this.storage.putObject(file.storage_id, newKey, body, {
         mimeType: file.mime_type || undefined,
+        size: file.size,
       });
 
-      await this.env.DB.prepare(
-        `UPDATE files SET storage_key = ?, size = ?, mime_type = ?, checksum = ?, updated_at = datetime('now') WHERE id = ?`
-      )
-        .bind(newKey, file.size, file.mime_type, file.checksum, copy.id)
-        .run();
+      await this.updateUploadedFile(
+        copy,
+        newKey,
+        file.size,
+        file.mime_type || 'application/octet-stream',
+        file.checksum
+      );
     }
 
     return this.getFile(copy.id, userId);
@@ -512,6 +571,65 @@ export class FileService {
 
   async getStorage(): Promise<StorageService> {
     return this.storage;
+  }
+
+  private async updateUploadedFile(
+    file: FileRow,
+    storageKey: string,
+    size: number,
+    mimeType: string,
+    checksum?: string | null
+  ): Promise<void> {
+    await this.env.DB.prepare(
+      `UPDATE files SET storage_key = ?, size = ?, mime_type = ?, checksum = ?, version = version + 1, updated_at = datetime('now') WHERE id = ?`
+    )
+      .bind(storageKey, size, mimeType, checksum || null, file.id)
+      .run();
+
+    const sizeDelta = size - file.size;
+    if (sizeDelta !== 0) {
+      await this.env.DB.prepare(
+        'UPDATE users SET used_storage = MAX(0, used_storage + ?) WHERE id = ?'
+      )
+        .bind(sizeDelta, file.owner_id)
+        .run();
+    }
+  }
+
+  private async collectFilesForDeletion(file: FileRow): Promise<FileRow[]> {
+    if (!file.is_directory) return [file];
+
+    const result = await this.env.DB.prepare(
+      'SELECT * FROM files WHERE path = ? OR path LIKE ?'
+    )
+      .bind(file.path, `${file.path}/%`)
+      .all<FileRow>();
+
+    return result.results;
+  }
+
+  private buildStorageKey(userId: string, fileId: string, name: string): string {
+    const safeName = name.replace(/[\\/]+/g, '_');
+    return `users/${userId}/files/${fileId}/${safeName}`;
+  }
+
+  private async calculateChecksum(data: ArrayBuffer): Promise<string> {
+    const hash = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hash))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  private isTextFile(file: FileRow): boolean {
+    const mimeType = file.mime_type || '';
+    return (
+      mimeType.startsWith('text/') ||
+      mimeType.includes('json') ||
+      mimeType.includes('javascript') ||
+      mimeType.includes('xml') ||
+      mimeType.includes('yaml') ||
+      mimeType.includes('markdown')
+    );
   }
 
   // ==============================

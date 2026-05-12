@@ -75,7 +75,7 @@ export const PREVIEW_SUPPORTED_MIME_TYPES = new Set([
 ]);
 
 // Storage drivers
-export const STORAGE_DRIVERS = ['s3', 'webdav', 'local'] as const;
+export const STORAGE_DRIVERS = ['s3', 'webdav', 'local', 'r2'] as const;
 export type StorageDriverType = (typeof STORAGE_DRIVERS)[number];
 
 // User roles

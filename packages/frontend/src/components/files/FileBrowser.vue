@@ -61,6 +61,7 @@
         :files="store.files"
         :selected="store.selectedIds"
         @select="store.toggleSelect($event)"
+        @select-all="store.selectAll()"
         @open="$emit('open', $event)"
         @contextmenu="$emit('contextMenu', $event)"
       />
@@ -69,6 +70,7 @@
         :files="store.files"
         :selected="store.selectedIds"
         @select="store.toggleSelect($event)"
+        @select-all="store.selectAll()"
         @open="$emit('open', $event)"
         @contextmenu="$emit('contextMenu', $event)"
       />

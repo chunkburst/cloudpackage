@@ -28,14 +28,8 @@ export const useFilesStore = defineStore('files', () => {
 
   const breadcrumb = computed(() => {
     const parts: { name: string; id?: string }[] = [{ name: 'Home' }];
-    // Breadcrumb built from currentDir.path
     if (currentDir.value?.path) {
-      const segments = currentDir.value.path.split('/').filter(Boolean);
-      let accum = '';
-      for (const seg of segments) {
-        accum += '/' + seg;
-        parts.push({ name: seg, id: accum });
-      }
+      parts.push({ name: currentDir.value.name, id: currentDir.value.id });
     }
     return parts;
   });
@@ -56,6 +50,13 @@ export const useFilesStore = defineStore('files', () => {
       files.value = res.data.files;
       total.value = res.data.total;
       parentId.value = parentIdParam ?? null;
+      if (parentId.value) {
+        const dir = await apiClient<{ success: boolean; data: FileRow }>(`/files/${parentId.value}`);
+        currentDir.value = dir.data;
+      } else {
+        currentDir.value = null;
+      }
+      clearSelection();
     } finally {
       loading.value = false;
     }

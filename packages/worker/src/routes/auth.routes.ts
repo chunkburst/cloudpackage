@@ -29,13 +29,13 @@ authRoutes.post('/login', zValidator('json', loginSchema), async (c) => {
 
 authRoutes.post('/refresh', requireAuth, async (c) => {
   const svc = new AuthService(c.env);
-  const { token } = await svc.refreshToken(c.get('user').id);
-  return c.json({ success: true, data: { token } });
+  const { user, token } = await svc.refreshToken(c.get('user').id);
+  return c.json({ success: true, data: { user, token } });
 });
 
 authRoutes.get('/me', requireAuth, async (c) => {
   const svc = new AuthService(c.env);
-  const user = await svc.getUserById(c.get('user').id);
+  const user = await svc.getPublicUserById(c.get('user').id);
   return c.json({ success: true, data: { user } });
 });
 

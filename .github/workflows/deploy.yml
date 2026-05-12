@@ -141,6 +141,32 @@ jobs:
         run: |
           npx wrangler d1 execute cloudpackage-db --remote --file=src/db/migrations/0001_initial.sql
 
+      - name: Bootstrap default admin and storage
+        if: steps.secrets.outputs.ready == 'true'
+        working-directory: packages/worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+        run: |
+          USER_COUNT=$(npx wrangler d1 execute cloudpackage-db --remote --command "SELECT COUNT(*) AS count FROM users;" --json | jq -r '.[0].results[0].count')
+          if [ "$USER_COUNT" = "0" ]; then
+            npx wrangler d1 execute cloudpackage-db --remote --command "INSERT INTO users (id, username, email, password_hash, display_name, role, storage_quota, is_active) VALUES ('00000000-0000-4000-8000-000000000001', 'admin', 'admin@ccb.rip', 'cloudpackage-admin-bootstrap:3fb46f871a66c28cdf0372d9e66172b631832b99c4faede0bfd65aa0ad2249de', 'Administrator', 'admin', 10737418240, 1);"
+          else
+            echo "Users already exist; skipping default admin bootstrap"
+          fi
+
+          STORAGE_COUNT=$(npx wrangler d1 execute cloudpackage-db --remote --command "SELECT COUNT(*) AS count FROM storage_configs;" --json | jq -r '.[0].results[0].count')
+          DEFAULT_STORAGE_EXISTS=$(npx wrangler d1 execute cloudpackage-db --remote --command "SELECT COUNT(*) AS count FROM storage_configs WHERE id = '00000000-0000-4000-8000-000000000020' OR (name = 'Cloudflare R2' AND mount_point = '/');" --json | jq -r '.[0].results[0].count')
+          if [ "$DEFAULT_STORAGE_EXISTS" = "0" ]; then
+            IS_DEFAULT=0
+            if [ "$STORAGE_COUNT" = "0" ]; then
+              IS_DEFAULT=1
+            fi
+            npx wrangler d1 execute cloudpackage-db --remote --command "INSERT INTO storage_configs (id, name, driver, is_default, is_active, config_json, mount_point, priority, created_by) VALUES ('00000000-0000-4000-8000-000000000020', 'Cloudflare R2', 'r2', $IS_DEFAULT, 1, '{\"binding\":\"BUCKET\"}', '/', 0, NULL);" || npx wrangler d1 execute cloudpackage-db --remote --command "INSERT INTO storage_configs (id, name, driver, is_default, is_active, config_json, mount_point, priority, created_by) VALUES ('00000000-0000-4000-8000-000000000020', 'Cloudflare R2', 's3', $IS_DEFAULT, 1, '{\"binding\":\"BUCKET\"}', '/', 0, NULL);"
+          else
+            echo "Default R2 storage config already exists"
+          fi
+
       - name: Sync Worker secrets
         if: steps.secrets.outputs.ready == 'true'
         working-directory: packages/worker

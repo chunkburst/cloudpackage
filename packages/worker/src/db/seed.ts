@@ -3,7 +3,7 @@
 import type { D1Database } from '@cloudflare/workers-types';
 
 const ADMIN_PASSWORD_HASH =
-  '$2a$10$dummy_hash_replace_with_real_bcrypt_hash';
+  'cloudpackage-admin-bootstrap:3fb46f871a66c28cdf0372d9e66172b631832b99c4faede0bfd65aa0ad2249de';
 const ADMIN_USER_ID = '00000000-0000-4000-8000-000000000001';
 const DEFAULT_THEME_ID = '00000000-0000-4000-8000-000000000010';
 
@@ -14,7 +14,7 @@ export async function seed(db: D1Database): Promise<void> {
       `INSERT OR IGNORE INTO users (id, username, email, password_hash, display_name, role, storage_quota, is_active)
        VALUES (?, ?, ?, ?, ?, 'admin', 10737418240, 1)`
     )
-    .bind(ADMIN_USER_ID, 'admin', 'admin@cloudpackage.local', ADMIN_PASSWORD_HASH, 'Administrator')
+    .bind(ADMIN_USER_ID, 'admin', 'admin@ccb.rip', ADMIN_PASSWORD_HASH, 'Administrator')
     .run();
 
   // Default theme

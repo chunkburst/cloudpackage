@@ -31,7 +31,7 @@ export interface ApiKeyRow {
 export interface StorageConfigRow {
   id: string;
   name: string;
-  driver: 's3' | 'webdav' | 'local';
+  driver: 's3' | 'webdav' | 'local' | 'r2';
   is_default: number;
   is_active: number;
   config_json: string;

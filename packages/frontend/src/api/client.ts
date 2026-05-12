@@ -4,13 +4,14 @@ interface RequestOptions extends RequestInit {
   skipAuth?: boolean;
 }
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+export const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 export async function apiClient<T = unknown>(path: string, options: RequestOptions = {}): Promise<T> {
   const { skipAuth, ...init } = options;
   const headers = new Headers(init.headers);
+  const hasFormDataBody = init.body instanceof FormData;
 
-  if (!headers.has('Content-Type') && init.method && init.method !== 'GET') {
+  if (!headers.has('Content-Type') && init.method && init.method !== 'GET' && !hasFormDataBody) {
     headers.set('Content-Type', 'application/json');
   }
 

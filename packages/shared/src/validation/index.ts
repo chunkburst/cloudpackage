@@ -78,7 +78,7 @@ export const confirmUploadSchema = z.object({
 
 export const createStorageConfigSchema = z.object({
   name: z.string().min(1).max(64),
-  driver: z.enum(['s3', 'webdav', 'local']),
+  driver: z.enum(['s3', 'webdav', 'local', 'r2']),
   config_json: z.string(),
   mount_point: z.string().optional(),
   priority: z.number().int().optional(),

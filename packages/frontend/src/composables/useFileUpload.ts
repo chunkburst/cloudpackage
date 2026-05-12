@@ -18,31 +18,14 @@ export function useFileUpload() {
     uploads.value.push(item);
 
     try {
-      // Step 1: Initialize upload
-      const initRes = await apiClient<{ success: boolean; data: { uploadUrl: string; fileId: string; uploadId?: string } }>(
-        '/files/upload/init',
-        {
-          method: 'POST',
-          body: JSON.stringify({
-            name: file.name,
-            size: file.size,
-            mime_type: file.type,
-            parent_id: parentId,
-          }),
-        }
-      );
+      const form = new FormData();
+      form.append('file', file);
+      if (parentId) form.append('parent_id', parentId);
 
-      // Step 2: Upload to presigned URL
-      const uploadResult = await fetch(initRes.data.uploadUrl, {
-        method: 'PUT',
-        body: file,
-        headers: { 'Content-Type': file.type },
+      await apiClient('/files/upload', {
+        method: 'POST',
+        body: form,
       });
-
-      if (!uploadResult.ok) throw new Error('Upload failed');
-
-      // Step 3: Confirm upload
-      await apiClient(`/files/${initRes.data.fileId}/upload/complete`, { method: 'POST' });
 
       item.progress = 100;
       item.status = 'done';

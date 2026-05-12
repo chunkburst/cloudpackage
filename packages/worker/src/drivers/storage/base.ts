@@ -27,7 +27,7 @@ export interface PresignedUploadResult {
 
 export interface StorageDriver {
   readonly name: string;
-  readonly driverType: 's3' | 'webdav' | 'local';
+  readonly driverType: 's3' | 'webdav' | 'local' | 'r2';
 
   init(config: Record<string, unknown>): Promise<void>;
 
