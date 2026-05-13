@@ -66,7 +66,12 @@
     "password": "Password Protection",
     "expiresAt": "Expires At",
     "maxAccesses": "Max Accesses",
-    "unlimited": "Unlimited"
+    "unlimited": "Unlimited",
+    "accessType": "Access Type",
+    "viewOnly": "View / Download",
+    "rawAccess": "Raw file access",
+    "editAccess": "Edit access",
+    "existingLinks": "Existing Links"
   },
   "admin": {
     "dashboard": "Dashboard",

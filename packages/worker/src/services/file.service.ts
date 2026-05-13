@@ -518,13 +518,17 @@ export class FileService {
   async updateFile(
     fileId: string,
     userId: string,
-    updates: Partial<Pick<FileRow, 'name' | 'visibility' | 'metadata_json'>>
+    updates: Partial<Pick<FileRow, 'name' | 'visibility' | 'metadata_json'> & { content: string }>
   ): Promise<FileRow> {
     const file = await this.getFile(fileId, userId);
     await this.checkAccess(file, userId, 'write');
 
     if (updates.name) {
       return this.renameFile(fileId, updates.name, userId);
+    }
+
+    if (updates.content !== undefined) {
+      return this.updateFileContent(file, updates.content);
     }
 
     if (updates.visibility || updates.metadata_json !== undefined) {
@@ -540,6 +544,45 @@ export class FileService {
     }
 
     return this.getFile(fileId, userId);
+  }
+
+  async writeFileContent(
+    fileId: string,
+    userId: string,
+    body: ReadableStream<Uint8Array> | ArrayBuffer,
+    mimeType = 'application/octet-stream',
+    size?: number
+  ): Promise<FileRow> {
+    const file = await this.getFile(fileId, userId);
+    await this.checkAccess(file, userId, 'write');
+
+    if (file.is_directory) {
+      throw new ValidationError('Cannot write content to a directory');
+    }
+
+    const data = body instanceof ArrayBuffer ? body : await new Response(body).arrayBuffer();
+    const storageId = file.storage_id || this.storage.getDefaultDriver().config.id;
+    const storageKey = file.storage_key || this.buildStorageKey(file.owner_id, file.id, file.name);
+    const checksum = await this.calculateChecksum(data);
+
+    await this.storage.putObject(storageId, storageKey, data, {
+      mimeType,
+      size: size ?? data.byteLength,
+    });
+
+    await this.env.DB.prepare('UPDATE files SET storage_id = ? WHERE id = ?')
+      .bind(storageId, file.id)
+      .run();
+
+    await this.updateUploadedFile(
+      { ...file, storage_id: storageId },
+      storageKey,
+      size ?? data.byteLength,
+      mimeType,
+      checksum
+    );
+
+    return this.getFile(file.id, userId);
   }
 
   // ==============================
@@ -571,6 +614,41 @@ export class FileService {
 
   async getStorage(): Promise<StorageService> {
     return this.storage;
+  }
+
+  private async updateFileContent(file: FileRow, content: string): Promise<FileRow> {
+    if (file.is_directory) {
+      throw new ValidationError('Cannot write content to a directory');
+    }
+
+    if (!this.isTextFile(file) && file.size > 0) {
+      throw new ValidationError('Only text files can be edited online');
+    }
+
+    const bytes = new TextEncoder().encode(content);
+    const storageId = file.storage_id || this.storage.getDefaultDriver().config.id;
+    const storageKey = file.storage_key || this.buildStorageKey(file.owner_id, file.id, file.name);
+    const mimeType = file.mime_type || this.inferTextMimeType(file.name);
+    const checksum = await this.calculateChecksum(bytes.buffer as ArrayBuffer);
+
+    await this.storage.putObject(storageId, storageKey, bytes.buffer as ArrayBuffer, {
+      mimeType,
+      size: bytes.byteLength,
+    });
+
+    await this.env.DB.prepare('UPDATE files SET storage_id = ? WHERE id = ?')
+      .bind(storageId, file.id)
+      .run();
+
+    await this.updateUploadedFile(
+      { ...file, storage_id: storageId },
+      storageKey,
+      bytes.byteLength,
+      mimeType,
+      checksum
+    );
+
+    return this.getFile(file.id, file.owner_id);
   }
 
   private async updateUploadedFile(
@@ -630,6 +708,18 @@ export class FileService {
       mimeType.includes('yaml') ||
       mimeType.includes('markdown')
     );
+  }
+
+  private inferTextMimeType(name: string): string {
+    const lower = name.toLowerCase();
+    if (lower.endsWith('.md') || lower.endsWith('.markdown')) return 'text/markdown';
+    if (lower.endsWith('.json')) return 'application/json';
+    if (lower.endsWith('.xml')) return 'application/xml';
+    if (lower.endsWith('.yml') || lower.endsWith('.yaml')) return 'text/yaml';
+    if (lower.endsWith('.js') || lower.endsWith('.ts')) return 'text/javascript';
+    if (lower.endsWith('.css')) return 'text/css';
+    if (lower.endsWith('.html') || lower.endsWith('.htm')) return 'text/html';
+    return 'text/plain';
   }
 
   // ==============================

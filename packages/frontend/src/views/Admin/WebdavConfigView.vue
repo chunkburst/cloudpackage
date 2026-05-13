@@ -56,7 +56,7 @@ const deleteTargetId = ref<string | null>(null);
 
 async function load(): Promise<void> {
   try {
-    const res = await apiClient<{ success: boolean; data: Token[] }>('/webdav/api/tokens');
+    const res = await apiClient<{ success: boolean; data: Token[] }>('/webdav/tokens');
     tokens.value = res.data;
   } catch (e) {
     error.value = (e as Error).message;
@@ -66,7 +66,7 @@ async function load(): Promise<void> {
 async function handleCreateToken(data: { name: string; allowedPaths: string; readOnly: boolean }): Promise<void> {
   try {
     const res = await apiClient<{ success: boolean; data: { id: string; name: string; token: string } }>(
-      '/webdav/api/tokens',
+      '/webdav/tokens',
       { method: 'POST', body: JSON.stringify({ name: data.name, allowed_paths: data.allowedPaths, read_only: data.readOnly }) }
     );
     if (res.data.token) {
@@ -89,7 +89,7 @@ async function confirmDeleteToken(): Promise<void> {
   showDeleteConfirm.value = false;
   if (!deleteTargetId.value) return;
   try {
-    await apiClient(`/webdav/api/tokens/${deleteTargetId.value}`, { method: 'DELETE' });
+    await apiClient(`/webdav/tokens/${deleteTargetId.value}`, { method: 'DELETE' });
     load();
     ui.addToast('success', 'Token deleted');
   } catch (e) {

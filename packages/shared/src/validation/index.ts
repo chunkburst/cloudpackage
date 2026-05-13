@@ -49,6 +49,7 @@ export const updateFileSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   visibility: z.enum(['private', 'shared', 'public']).optional(),
   metadata_json: z.string().optional(),
+  content: z.string().optional(),
 });
 
 export const moveFileSchema = z.object({

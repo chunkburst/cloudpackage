@@ -66,7 +66,12 @@
     "password": "密码保护",
     "expiresAt": "过期时间",
     "maxAccesses": "最大访问次数",
-    "unlimited": "无限制"
+    "unlimited": "无限制",
+    "accessType": "访问类型",
+    "viewOnly": "查看 / 下载",
+    "rawAccess": "原始文件访问",
+    "editAccess": "编辑访问",
+    "existingLinks": "现有链接"
   },
   "admin": {
     "dashboard": "仪表盘",

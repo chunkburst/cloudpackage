@@ -9,7 +9,7 @@
       <span class="text-sm truncate">{{ fileName }}</span>
       <div class="flex items-center gap-2 ml-auto">
         <CollabUsers :users="collabUsers" />
-        <CollabSession :connected="collabConnected" @connect="joinCollab" @disconnect="leaveCollab" />
+        <CollabSession :connected="collab.connected.value" @connect="joinCollab" @disconnect="leaveCollab" />
       </div>
     </div>
 
@@ -32,10 +32,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { computed, ref, onMounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { apiClient } from '@/api/client';
 import { useUiStore } from '@/stores/ui.store';
+import { useCollab } from '@/composables/useCollab';
 import MarkdownEditor from '@/components/editor/MarkdownEditor.vue';
 import ExportDialog from '@/components/editor/ExportDialog.vue';
 import CollabUsers from '@/components/collab/CollabUsers.vue';
@@ -54,12 +55,31 @@ const loading = ref(true);
 const error = ref('');
 const isSaving = ref(false);
 const showExport = ref(false);
-const collabConnected = ref(false);
-const collabUsers = ref<{ id: string; username: string; color: string }[]>([]);
+let applyingRemoteContent = false;
+
+const collab = useCollab(
+  fileId,
+  (nextContent) => {
+    if (!nextContent && content.value) return;
+    applyingRemoteContent = true;
+    content.value = nextContent;
+    applyingRemoteContent = false;
+  },
+  (message) => ui.addToast('error', message)
+);
+
+const collabUsers = computed(() => collab.users.value.map((user) => ({
+  id: user.userId,
+  username: user.username,
+  color: user.color,
+})));
 
 const isDirty = ref(false);
 watch(content, (val) => {
   isDirty.value = val !== savedContent.value;
+  if (!applyingRemoteContent && collab.connected.value && val !== null) {
+    collab.sendContent(val);
+  }
 });
 
 async function loadFile(): Promise<void> {
@@ -101,12 +121,11 @@ function handleExport(format: string): void {
 }
 
 function joinCollab(): void {
-  collabConnected.value = true;
+  collab.connect();
 }
 
 function leaveCollab(): void {
-  collabConnected.value = false;
-  collabUsers.value = [];
+  collab.disconnect();
 }
 
 onMounted(loadFile);

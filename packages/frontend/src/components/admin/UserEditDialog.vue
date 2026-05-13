@@ -23,7 +23,7 @@
       </div>
       <div>
         <label class="label">Storage Quota (bytes)</label>
-        <input v-model.number="form.storageQuota" type="number" min="0" class="input" />
+        <input v-model.number="form.storage_quota" type="number" min="1" class="input" />
       </div>
       <div class="flex justify-end gap-3">
         <button type="button" class="btn-secondary" @click="$emit('close')">{{ $t('common.cancel') }}</button>
@@ -45,7 +45,7 @@ const props = withDefaults(defineProps<{
 
 defineEmits<{
   close: [];
-  save: [data: { username: string; email: string; password: string; role: string; storageQuota: number }];
+  save: [data: { username: string; email: string; password?: string; role: string; storage_quota: number }];
 }>();
 
 const form = reactive({
@@ -53,7 +53,7 @@ const form = reactive({
   email: '',
   password: '',
   role: 'user',
-  storageQuota: 10737418240, // 10 GB
+  storage_quota: 10737418240, // 10 GB
 });
 
 watch(() => props.open, (val) => {
@@ -61,14 +61,14 @@ watch(() => props.open, (val) => {
     form.username = props.initial.username;
     form.email = props.initial.email;
     form.role = props.initial.role;
-    form.storageQuota = props.initial.storage_quota;
+    form.storage_quota = props.initial.storage_quota;
     form.password = '';
   } else if (val) {
     form.username = '';
     form.email = '';
     form.password = '';
     form.role = 'user';
-    form.storageQuota = 10737418240;
+    form.storage_quota = 10737418240;
   }
 });
 </script>

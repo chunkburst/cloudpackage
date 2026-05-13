@@ -5,6 +5,8 @@ import { NotFoundError } from '@cloudpackage/shared';
 import type { Env } from '../env.js';
 import { PAGINATION_DEFAULT_PAGE, PAGINATION_DEFAULT_PAGE_SIZE, PAGINATION_MAX_PAGE_SIZE } from '@cloudpackage/shared';
 
+type PublicAdminUser = Omit<UserRow, 'password_hash'>;
+
 export class AdminService {
   constructor(private env: Env) {}
 
@@ -17,7 +19,7 @@ export class AdminService {
     pageSize?: number;
     search?: string;
     role?: string;
-  } = {}): Promise<{ users: UserRow[]; total: number }> {
+  } = {}): Promise<{ users: PublicAdminUser[]; total: number }> {
     const page = opts.page || PAGINATION_DEFAULT_PAGE;
     const pageSize = Math.min(opts.pageSize || PAGINATION_DEFAULT_PAGE_SIZE, PAGINATION_MAX_PAGE_SIZE);
     const offset = (page - 1) * pageSize;
@@ -47,10 +49,15 @@ export class AdminService {
       .bind(...params, pageSize, offset)
       .all<UserRow>();
 
-    return { users: result.results, total: countResult?.count || 0 };
+    return { users: result.results.map((user) => this.toPublicUser(user)), total: countResult?.count || 0 };
   }
 
-  async getUser(userId: string): Promise<UserRow> {
+  async getUser(userId: string): Promise<PublicAdminUser> {
+    const user = await this.getUserRow(userId);
+    return this.toPublicUser(user);
+  }
+
+  private async getUserRow(userId: string): Promise<UserRow> {
     const user = await this.env.DB.prepare('SELECT * FROM users WHERE id = ?')
       .bind(userId)
       .first<UserRow>();
@@ -65,7 +72,7 @@ export class AdminService {
     display_name?: string;
     role?: 'admin' | 'user' | 'viewer';
     storage_quota?: number;
-  }): Promise<UserRow> {
+  }): Promise<PublicAdminUser> {
     const id = crypto.randomUUID();
     const passwordHash = await this.hashPassword(dto.password);
 
@@ -96,8 +103,8 @@ export class AdminService {
       storage_quota?: number;
       is_active?: boolean;
     }
-  ): Promise<UserRow> {
-    const user = await this.getUser(userId);
+  ): Promise<PublicAdminUser> {
+    const user = await this.getUserRow(userId);
 
     await this.env.DB.prepare(
       `UPDATE users
@@ -273,9 +280,10 @@ export class AdminService {
     return result ? JSON.parse(result.value_json) : null;
   }
 
-  // ==============================
-  // Private
-  // ==============================
+  private toPublicUser(user: UserRow): PublicAdminUser {
+    const { password_hash, ...publicUser } = user;
+    return publicUser;
+  }
 
   private async hashPassword(password: string): Promise<string> {
     const encoder = new TextEncoder();

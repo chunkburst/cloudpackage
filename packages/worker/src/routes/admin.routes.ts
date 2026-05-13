@@ -19,7 +19,7 @@ adminRoutes.get('/users', async (c) => {
   const svc = new AdminService(c.env);
   const page = parseInt(c.req.query('page') || '1', 10);
   const pageSize = parseInt(c.req.query('pageSize') || '50', 10);
-  const search = c.req.query('search') || undefined;
+  const search = c.req.query('search') || c.req.query('q') || undefined;
 
   const { users, total } = await svc.listUsers({ page, pageSize, search });
   return c.json({ success: true, data: users, meta: { total } });

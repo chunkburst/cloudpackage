@@ -33,6 +33,16 @@
       </form>
     </Modal>
 
+    <ShareDialog
+      v-if="showShareDialog"
+      :open="showShareDialog"
+      :links="shareLinks"
+      @close="closeShareDialog"
+      @create="createShareLink"
+      @copy="copyShareLink"
+      @revoke="revokeShareLink"
+    />
+
     <FileContextMenu ref="contextMenuRef" :items="contextMenuItems" />
 
     <ConfirmDialog
@@ -73,6 +83,10 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import FileRenameDialog from '@/components/files/FileRenameDialog.vue';
 import Modal from '@/components/common/Modal.vue';
 import Toast from '@/components/common/Toast.vue';
+import ShareDialog from '@/components/share/ShareDialog.vue';
+import type { ShareLinkRow } from '@cloudpackage/shared/types';
+
+type PublicShareLink = Omit<ShareLinkRow, 'password_hash'> & { has_password: boolean };
 
 const router = useRouter();
 const store = useFilesStore();
@@ -81,16 +95,19 @@ const ui = useUiStore();
 const showUploader = ref(false);
 const showDeleteConfirm = ref(false);
 const showNewFolder = ref(false);
+const showShareDialog = ref(false);
 const newFolderName = ref('');
 const renameTargetId = ref<string | null>(null);
 const renameTargetName = ref<string | null>(null);
 const contextMenuRef = ref<InstanceType<typeof FileContextMenu> | null>(null);
 const contextMenuFileId = ref<string | null>(null);
+const shareTargetId = ref<string | null>(null);
+const shareLinks = ref<PublicShareLink[]>([]);
 
 const contextMenuItems = computed(() => [
   { label: 'Open', action: 'open', handler: () => handleOpen(contextMenuFileId.value!) },
   { label: 'Rename', action: 'rename', handler: () => startRename(contextMenuFileId.value!) },
-  { label: 'Share', action: 'share', handler: () => router.push(`/share/${contextMenuFileId.value}`) },
+  { label: 'Share', action: 'share', handler: () => openShareDialog(contextMenuFileId.value!) },
   { label: 'Delete', action: 'delete', handler: () => { store.toggleSelect(contextMenuFileId.value!); showDeleteConfirm.value = true; }, danger: true },
 ]);
 
@@ -167,6 +184,51 @@ function startRename(fileId: string): void {
 function clearRenameTarget(): void {
   renameTargetId.value = null;
   renameTargetName.value = null;
+}
+
+async function loadShareLinks(fileId: string): Promise<void> {
+  const res = await apiClient<{ success: boolean; data: PublicShareLink[] }>(`/share/file/${fileId}`);
+  shareLinks.value = res.data;
+}
+
+async function openShareDialog(fileId: string): Promise<void> {
+  shareTargetId.value = fileId;
+  showShareDialog.value = true;
+  await loadShareLinks(fileId);
+}
+
+function closeShareDialog(): void {
+  showShareDialog.value = false;
+  shareTargetId.value = null;
+  shareLinks.value = [];
+}
+
+async function createShareLink(form: { password: string; expiresAt: string; maxAccesses: number; accessType: 'view' | 'raw' | 'edit' }): Promise<void> {
+  if (!shareTargetId.value) return;
+
+  const payload: Record<string, unknown> = {
+    file_id: shareTargetId.value,
+    access_type: form.accessType,
+  };
+  if (form.password) payload.password = form.password;
+  if (form.maxAccesses > 0) payload.max_accesses = form.maxAccesses;
+  if (form.expiresAt) payload.expires_at = new Date(form.expiresAt).toISOString();
+
+  await apiClient('/share', { method: 'POST', body: JSON.stringify(payload) });
+  await loadShareLinks(shareTargetId.value);
+  ui.addToast('success', 'Share link created');
+}
+
+async function copyShareLink(token: string): Promise<void> {
+  const url = `${window.location.origin}/share/${token}`;
+  await navigator.clipboard.writeText(url);
+  ui.addToast('success', 'Share link copied');
+}
+
+async function revokeShareLink(token: string): Promise<void> {
+  await apiClient(`/share/${token}`, { method: 'DELETE' });
+  if (shareTargetId.value) await loadShareLinks(shareTargetId.value);
+  ui.addToast('success', 'Share link revoked');
 }
 
 async function handleRename(newName: string): Promise<void> {

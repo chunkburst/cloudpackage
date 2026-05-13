@@ -44,7 +44,7 @@ const filters = ref<{ mimeType?: string; isDirectory?: boolean }>({});
 async function doSearch(): Promise<void> {
   loading.value = true;
   try {
-    const params = new URLSearchParams({ q: query.value });
+    const params = new URLSearchParams({ query: query.value });
     if (filters.value.mimeType) params.set('mime_type', filters.value.mimeType);
     if (filters.value.isDirectory !== undefined) params.set('is_directory', String(filters.value.isDirectory));
     const res = await apiClient<{ success: boolean; data: FileRow[] }>(`/search?${params}`);

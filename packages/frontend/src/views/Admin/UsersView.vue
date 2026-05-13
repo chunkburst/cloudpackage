@@ -66,7 +66,7 @@ async function loadUsers(): Promise<void> {
 
 async function handleSearch(q: string): Promise<void> {
   searchQuery.value = q;
-  const params = q ? `?q=${encodeURIComponent(q)}` : '';
+  const params = q ? `?search=${encodeURIComponent(q)}` : '';
   try {
     const res = await apiClient<{ success: boolean; data: typeof users.value }>(`/admin/users${params}`);
     users.value = res.data;
@@ -90,16 +90,21 @@ function closeForm(): void {
   editingUser.value = null;
 }
 
-async function handleSave(data: { username: string; email: string; password: string; role: string; storageQuota: number }): Promise<void> {
+async function handleSave(data: { username: string; email: string; password?: string; role: string; storage_quota: number }): Promise<void> {
   try {
+    const payload = editingUser.value
+      ? { email: data.email, role: data.role, storage_quota: data.storage_quota }
+      : data;
+
     if (editingUser.value) {
-      await apiClient(`/admin/users/${editingUser.value.id}`, { method: 'PUT', body: JSON.stringify(data) });
+      await apiClient(`/admin/users/${editingUser.value.id}`, { method: 'PUT', body: JSON.stringify(payload) });
     } else {
-      await apiClient('/admin/users', { method: 'POST', body: JSON.stringify(data) });
+      await apiClient('/admin/users', { method: 'POST', body: JSON.stringify(payload) });
     }
+    const wasEditing = !!editingUser.value;
     closeForm();
     loadUsers();
-    ui.addToast('success', editingUser.value ? 'User updated' : 'User created');
+    ui.addToast('success', wasEditing ? 'User updated' : 'User created');
   } catch (e) {
     error.value = (e as Error).message;
   }

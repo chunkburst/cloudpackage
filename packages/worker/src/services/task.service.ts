@@ -108,17 +108,21 @@ export class TaskService {
       }
 
       await this.env.DB.prepare(
-        `UPDATE task_schedule SET last_run_status = 'success' WHERE id = ?`
+        `UPDATE task_schedule
+         SET last_run_status = 'success', next_run_at = datetime('now', ?)
+         WHERE id = ?`
       )
-        .bind(id)
+        .bind(this.nextRunModifier(task.cron_expression), id)
         .run();
 
       return { status: 'success', message: `Task '${task.name}' completed` };
     } catch (err) {
       await this.env.DB.prepare(
-        `UPDATE task_schedule SET last_run_status = 'failed' WHERE id = ?`
+        `UPDATE task_schedule
+         SET last_run_status = 'failed', next_run_at = datetime('now', ?)
+         WHERE id = ?`
       )
-        .bind(id)
+        .bind(this.nextRunModifier(task.cron_expression), id)
         .run();
 
       return {
@@ -130,7 +134,9 @@ export class TaskService {
 
   async runPendingTasks(): Promise<Array<{ id: string; result: { status: string; message: string } }>> {
     const tasks = await this.env.DB.prepare(
-      'SELECT * FROM task_schedule WHERE is_active = 1'
+      `SELECT * FROM task_schedule
+       WHERE is_active = 1
+         AND (next_run_at IS NULL OR next_run_at <= datetime('now'))`
     ).all<TaskScheduleRow>();
 
     const results: Array<{ id: string; result: { status: string; message: string } }> = [];
@@ -147,14 +153,24 @@ export class TaskService {
   // Task implementations
   // ==============================
 
+  private nextRunModifier(cronExpression: string): string {
+    const parts = cronExpression.trim().split(/\s+/);
+    const minute = parts[0] || '';
+
+    if (minute.startsWith('*/')) {
+      const value = Number(minute.slice(2));
+      if (Number.isInteger(value) && value > 0) return `+${value} minutes`;
+    }
+
+    if (minute === '*') return '+1 minutes';
+    return '+1 hours';
+  }
+
   private async runCleanup(): Promise<void> {
-    // Clean up expired upload sessions (would be in upload-session DO)
-    // Clean expired share links
     await this.env.DB.prepare(
       "DELETE FROM share_links WHERE expires_at < datetime('now')"
     ).run();
 
-    // Clean stalled collaboration sessions
     await this.env.DB.prepare(
       `DELETE FROM collaboration_sessions
        WHERE active_users = 0 AND last_heartbeat < datetime('now', '-1 hour')`

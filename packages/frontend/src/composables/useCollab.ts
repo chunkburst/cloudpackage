@@ -1,33 +1,41 @@
 import { ref, onUnmounted } from 'vue';
+import { BASE_URL } from '@/api/client';
 import { useAuthStore } from '@/stores/auth.store';
 
 interface CollabUser {
-  id: string;
-  username: string;
-  color: string;
-}
-
-interface CollabCursor {
   userId: string;
   username: string;
-  x: number;
-  y: number;
   color: string;
 }
 
-export function useCollab(fileId: string) {
+interface CollabMessage {
+  type: 'users' | 'state' | 'operation' | 'conflict';
+  users?: CollabUser[];
+  content?: string;
+  currentVersion?: number;
+  version?: number;
+  message?: string;
+}
+
+export function useCollab(fileId: string, onContent?: (content: string) => void, onConflict?: (message: string) => void) {
   const connected = ref(false);
   const users = ref<CollabUser[]>([]);
-  const cursors = ref<CollabCursor[]>([]);
+  const version = ref(0);
   let ws: WebSocket | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
-  function connect(): void {
+  function wsUrl(): string | null {
     const auth = useAuthStore();
-    if (!auth.token) return;
+    if (!auth.token) return null;
 
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${location.host}/api/collab/ws/${fileId}?token=${auth.token}`;
+    const apiBase = new URL(BASE_URL, window.location.origin);
+    apiBase.protocol = apiBase.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${apiBase.origin}${apiBase.pathname}/collab/ws/${fileId}?token=${encodeURIComponent(auth.token)}`;
+  }
+
+  function connect(): void {
+    const url = wsUrl();
+    if (!url) return;
 
     ws = new WebSocket(url);
 
@@ -37,13 +45,23 @@ export function useCollab(fileId: string) {
 
     ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data);
+        const msg = JSON.parse(event.data) as CollabMessage;
         switch (msg.type) {
           case 'users':
-            users.value = msg.users;
+            users.value = msg.users || [];
             break;
-          case 'cursor':
-            cursors.value = msg.cursors;
+          case 'state':
+            version.value = msg.version || 0;
+            if (msg.content !== undefined) onContent?.(msg.content);
+            break;
+          case 'operation':
+            version.value = msg.currentVersion || version.value;
+            if (msg.content !== undefined) onContent?.(msg.content);
+            break;
+          case 'conflict':
+            version.value = msg.currentVersion || version.value;
+            if (msg.content !== undefined) onContent?.(msg.content);
+            onConflict?.(msg.message || 'Collaboration conflict');
             break;
         }
       } catch { /* ignore */ }
@@ -68,7 +86,6 @@ export function useCollab(fileId: string) {
     ws = null;
     connected.value = false;
     users.value = [];
-    cursors.value = [];
   }
 
   function scheduleReconnect(): void {
@@ -79,15 +96,9 @@ export function useCollab(fileId: string) {
     }, 5000);
   }
 
-  function sendOperation(op: { opType: string; position: number; text?: string; length?: number }): void {
+  function sendContent(content: string): void {
     if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'operation', ...op }));
-    }
-  }
-
-  function sendCursor(x: number, y: number): void {
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'cursor', x, y }));
+      ws.send(JSON.stringify({ type: 'operation', opType: 'replace', content, version: version.value }));
     }
   }
 
@@ -95,5 +106,5 @@ export function useCollab(fileId: string) {
     disconnect();
   });
 
-  return { connected, users, cursors, connect, disconnect, sendOperation, sendCursor };
+  return { connected, users, version, connect, disconnect, sendContent };
 }

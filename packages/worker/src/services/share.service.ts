@@ -4,6 +4,10 @@ import type { ShareLinkRow, FileRow } from '@cloudpackage/shared/types';
 import { NotFoundError, AuthorizationError, ValidationError } from '@cloudpackage/shared';
 import { SHARE_TOKEN_LENGTH } from '@cloudpackage/shared';
 import type { Env } from '../env.js';
+import { StorageService } from './storage.service.js';
+
+type ShareAccessMode = 'view' | 'download' | 'raw' | 'edit';
+export type PublicShareLink = Omit<ShareLinkRow, 'password_hash'> & { has_password: boolean };
 
 export class ShareService {
   constructor(private env: Env) {}
@@ -17,7 +21,7 @@ export class ShareService {
       max_accesses?: number;
       expires_at?: string;
     }
-  ): Promise<ShareLinkRow> {
+  ): Promise<PublicShareLink> {
     // Verify file exists and user owns it
     const file = await this.env.DB.prepare('SELECT * FROM files WHERE id = ?')
       .bind(fileId)
@@ -63,13 +67,14 @@ export class ShareService {
       )
       .run();
 
-    return shareLink;
+    return this.toPublicShareLink(shareLink);
   }
 
   async accessShare(
     token: string,
-    password?: string
-  ): Promise<{ file: FileRow; shareLink: ShareLinkRow }> {
+    password?: string,
+    mode: ShareAccessMode = 'view'
+  ): Promise<{ file: FileRow; shareLink: PublicShareLink }> {
     const shareLink = await this.env.DB.prepare(
       'SELECT * FROM share_links WHERE token = ?'
     )
@@ -108,6 +113,8 @@ export class ShareService {
 
     if (!file) throw new NotFoundError('File', shareLink.file_id);
 
+    this.ensureAccessType(shareLink, mode);
+
     // Increment access count
     await this.env.DB.prepare(
       'UPDATE share_links SET access_count = access_count + 1 WHERE id = ?'
@@ -115,13 +122,13 @@ export class ShareService {
       .bind(shareLink.id)
       .run();
 
-    return { file, shareLink };
+    return { file, shareLink: this.toPublicShareLink({ ...shareLink, access_count: shareLink.access_count + 1 }) };
   }
 
   async listShares(
     fileId: string,
     userId: string
-  ): Promise<ShareLinkRow[]> {
+  ): Promise<PublicShareLink[]> {
     const file = await this.env.DB.prepare('SELECT * FROM files WHERE id = ?')
       .bind(fileId)
       .first<FileRow>();
@@ -135,7 +142,7 @@ export class ShareService {
       .bind(fileId)
       .all<ShareLinkRow>();
 
-    return result.results;
+    return result.results.map((shareLink) => this.toPublicShareLink(shareLink));
   }
 
   async revokeShare(token: string, userId: string): Promise<void> {
@@ -162,7 +169,7 @@ export class ShareService {
       max_accesses?: number;
       expires_at?: string;
     }
-  ): Promise<ShareLinkRow> {
+  ): Promise<PublicShareLink> {
     const shareLink = await this.env.DB.prepare(
       'SELECT * FROM share_links WHERE token = ?'
     )
@@ -189,14 +196,58 @@ export class ShareService {
       )
       .run();
 
-    return (await this.env.DB.prepare('SELECT * FROM share_links WHERE token = ?')
+    const updated = await this.env.DB.prepare('SELECT * FROM share_links WHERE token = ?')
       .bind(token)
-      .first<ShareLinkRow>())!;
+      .first<ShareLinkRow>();
+    return this.toPublicShareLink(updated!);
+  }
+
+  async getSharedFileStream(
+    token: string,
+    password: string | undefined,
+    mode: ShareAccessMode
+  ): Promise<{ stream: ReadableStream<Uint8Array>; meta: { name: string; mimeType: string; size: number }; shareLink: PublicShareLink }> {
+    const { file, shareLink } = await this.accessShare(token, password, mode);
+
+    if (file.is_directory) {
+      throw new ValidationError('Cannot download a directory');
+    }
+    if (!file.storage_id || !file.storage_key) {
+      throw new ValidationError('File has no content');
+    }
+
+    const storage = new StorageService(this.env);
+    await storage.init();
+    const { body } = await storage.getObject(file.storage_id, file.storage_key);
+
+    return {
+      stream: body,
+      meta: {
+        name: file.name,
+        mimeType: file.mime_type || 'application/octet-stream',
+        size: file.size,
+      },
+      shareLink,
+    };
   }
 
   // ==============================
   // Private
   // ==============================
+
+  private ensureAccessType(shareLink: ShareLinkRow, mode: ShareAccessMode): void {
+    if (mode === 'raw' && shareLink.access_type !== 'raw' && shareLink.access_type !== 'edit') {
+      throw new AuthorizationError('Raw access is not allowed for this share link');
+    }
+    if (mode === 'edit' && shareLink.access_type !== 'edit') {
+      throw new AuthorizationError('Edit access is not allowed for this share link');
+    }
+  }
+
+  private toPublicShareLink(shareLink: ShareLinkRow): PublicShareLink {
+    const { password_hash, ...publicShareLink } = shareLink;
+    return { ...publicShareLink, has_password: !!password_hash };
+  }
 
   private generateShareToken(): string {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-';

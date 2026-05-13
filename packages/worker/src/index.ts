@@ -16,14 +16,14 @@ import { authRoutes } from './routes/auth.routes.js';
 import { filesRoutes } from './routes/files.routes.js';
 import { storageRoutes } from './routes/storage.routes.js';
 import { shareRoutes } from './routes/share.routes.js';
-import { webdavRoutes } from './routes/webdav.routes.js';
+import { webdavRoutes, webdavTokenRoutes } from './routes/webdav.routes.js';
 import { adminRoutes } from './routes/admin.routes.js';
 import { searchRoutes } from './routes/search.routes.js';
 import { collabRoutes } from './routes/collab.routes.js';
 import { taskRoutes } from './routes/task.routes.js';
 import { themeRoutes } from './routes/theme.routes.js';
 import { previewRoutes } from './routes/preview.routes.js';
-import { cronRoutes } from './routes/internal/cron.routes.js';
+import { TaskService } from './services/task.service.js';
 
 const app = new Hono<{ Bindings: Env; Variables: { user?: AuthUser } }>();
 
@@ -53,23 +53,28 @@ app.use('/api/search/*', optionalAuth);
 app.route('/api/search', searchRoutes);
 
 // Protected routes
+app.route('/api/collab', collabRoutes);
 app.use('/api/*', requireAuth);
 app.route('/api/files', filesRoutes);
 app.route('/api/storage', storageRoutes);
+app.route('/api/webdav', webdavTokenRoutes);
 app.route('/api/admin', adminRoutes);
-app.route('/api/collab', collabRoutes);
 app.route('/api/tasks', taskRoutes);
 app.route('/api/preview', previewRoutes);
 
 // WebDAV (has own authentication via webdav_tokens)
 app.route('/webdav', webdavRoutes);
 
-// Internal routes (cron triggers)
-app.route('/api/internal', cronRoutes);
-
 // 404 catch-all
 app.notFound((c) => {
   return c.json({ success: false, error: { code: 'NOT_FOUND', message: 'Route not found' } }, 404);
 });
 
-export default app;
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    return app.fetch(request, env, ctx);
+  },
+  async scheduled(_event: ScheduledEvent, env: Env): Promise<void> {
+    await new TaskService(env).runPendingTasks();
+  },
+};

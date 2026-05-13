@@ -11,7 +11,7 @@ export class SearchService {
   async fullTextSearch(
     query: string,
     userId: string,
-    opts: PaginationParams & { fileType?: string } = {}
+    opts: PaginationParams & { fileType?: string; isDirectory?: boolean } = {}
   ): Promise<{ files: FileRow[]; total: number }> {
     const page = opts.page || PAGINATION_DEFAULT_PAGE;
     const pageSize = Math.min(
@@ -37,6 +37,11 @@ export class SearchService {
     if (opts.fileType) {
       whereClause += ' AND f.mime_type LIKE ?';
       params.push(`${opts.fileType}%`);
+    }
+
+    if (opts.isDirectory !== undefined) {
+      whereClause += ' AND f.is_directory = ?';
+      params.push(opts.isDirectory ? 1 : 0);
     }
 
     const sql = `SELECT f.* FROM files f

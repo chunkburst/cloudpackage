@@ -24,7 +24,7 @@ export async function apiClient<T = unknown>(path: string, options: RequestOptio
 
   const response = await fetch(`${BASE_URL}${path}`, { ...init, headers });
 
-  if (response.status === 401) {
+  if (response.status === 401 && !skipAuth) {
     const auth = useAuthStore();
     auth.logout();
     throw new Error('Unauthorized');
@@ -32,7 +32,12 @@ export async function apiClient<T = unknown>(path: string, options: RequestOptio
 
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error || `HTTP ${response.status}`);
+    const apiError = body as { error?: string | { message?: string } };
+    throw new Error(
+      typeof apiError.error === 'string'
+        ? apiError.error
+        : apiError.error?.message || `HTTP ${response.status}`
+    );
   }
 
   const json = await response.json();

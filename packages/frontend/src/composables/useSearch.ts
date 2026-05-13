@@ -28,7 +28,7 @@ export function useSearch() {
     error.value = '';
     try {
       const res = await apiClient<{ success: boolean; data: FileRow[] }>(
-        `/search?q=${encodeURIComponent(query.value)}`
+        `/search?query=${encodeURIComponent(query.value)}`
       );
       results.value = res.data;
     } catch (e) {
@@ -41,7 +41,7 @@ export function useSearch() {
   async function suggestions(prefix: string): Promise<string[]> {
     try {
       const res = await apiClient<{ success: boolean; data: string[] }>(
-        `/search/suggest?q=${encodeURIComponent(prefix)}`
+        `/search/suggest?query=${encodeURIComponent(prefix)}`
       );
       return res.data;
     } catch {
