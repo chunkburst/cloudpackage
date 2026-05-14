@@ -74,6 +74,10 @@ const SearchIcon = icon('M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z');
 const SettingsIcon = icon('M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z');
 const UsersIcon = icon('M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z');
 const StorageIcon = icon('M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7M4 7c0-2 1-3 3-3h10c2 0 3 1 3 3M4 7h16M9 11h6');
+const TasksIcon = icon('M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 8l2 2 4-4');
+const ThemeIcon = icon('M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343');
+const WebdavIcon = icon('M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.002 4.002 0 003 15z');
+const AuditIcon = icon('M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z');
 
 const navItems = computed(() => [
   { to: '/files', label: t('nav.files'), icon: FolderIcon },
@@ -85,5 +89,9 @@ const adminItems = computed(() => [
   { to: '/admin', label: t('admin.dashboard'), icon: SettingsIcon },
   { to: '/admin/users', label: t('admin.users'), icon: UsersIcon },
   { to: '/admin/storage', label: t('admin.storage'), icon: StorageIcon },
+  { to: '/admin/tasks', label: t('admin.tasks'), icon: TasksIcon },
+  { to: '/admin/themes', label: t('admin.themes'), icon: ThemeIcon },
+  { to: '/admin/webdav', label: t('admin.webdav'), icon: WebdavIcon },
+  { to: '/admin/audit', label: t('admin.audit'), icon: AuditIcon },
 ]);
 </script>

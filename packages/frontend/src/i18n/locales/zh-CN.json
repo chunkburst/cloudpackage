@@ -86,6 +86,18 @@
     "totalStorage": "存储使用量",
     "activeSessions": "活跃会话"
   },
+  "preview": {
+    "unavailable": "暂不支持在线预览",
+    "downloadInstead": "请下载文件后在本地查看。",
+    "audioUnsupported": "你的浏览器不支持音频播放。",
+    "videoUnsupported": "你的浏览器不支持视频播放。"
+  },
+  "upload": {
+    "title": "上传文件",
+    "noUploads": "暂无上传任务",
+    "retry": "重试",
+    "clearFinished": "清除已完成"
+  },
   "search": {
     "placeholder": "搜索文件...",
     "results": "搜索结果",
@@ -113,6 +125,7 @@
     "error": "出错了",
     "success": "操作成功",
     "noData": "暂无数据",
+    "clear": "清除",
     "or": "或"
   }
 }

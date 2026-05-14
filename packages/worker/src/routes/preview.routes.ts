@@ -22,3 +22,10 @@ previewRoutes.get('/config/:fileId', requireAuth, async (c) => {
 
   return c.json({ success: true, data: config });
 });
+
+previewRoutes.get('/raw/:fileId', requireAuth, async (c) => {
+  const previewSvc = new PreviewService(c.env);
+  const raw = await previewSvc.getRawContent(c.req.param('fileId')!, c.get('user').id);
+  return c.json({ success: true, data: raw });
+});
+

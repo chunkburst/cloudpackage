@@ -86,6 +86,18 @@
     "totalStorage": "Storage Used",
     "activeSessions": "Active Sessions"
   },
+  "preview": {
+    "unavailable": "Preview not available",
+    "downloadInstead": "Download the file to view it locally.",
+    "audioUnsupported": "Your browser does not support the audio tag.",
+    "videoUnsupported": "Your browser does not support the video tag."
+  },
+  "upload": {
+    "title": "Upload Files",
+    "noUploads": "No uploads yet",
+    "retry": "Retry",
+    "clearFinished": "Clear finished"
+  },
   "search": {
     "placeholder": "Search files...",
     "results": "Search Results",
@@ -113,6 +125,7 @@
     "error": "Something went wrong",
     "success": "Success",
     "noData": "No data",
+    "clear": "Clear",
     "or": "or"
   }
 }

@@ -16,8 +16,20 @@
     </div>
     <AppFooter />
 
-    <Modal v-if="showUploader" :open="showUploader" title="Upload Files" @close="showUploader = false">
-      <FileUploader @files="handleUpload" />
+    <Modal v-if="showUploader" :open="showUploader" :title="$t('upload.title')" size="lg" @close="closeUploader">
+      <div class="space-y-5">
+        <FileUploader @files="handleUpload" />
+        <FileUploadProgress
+          :uploads="uploads"
+          @retry="retryUpload"
+          @cancel="cancelUpload"
+          @remove="removeUpload"
+        />
+        <div v-if="hasUploads" class="flex justify-end gap-3">
+          <button type="button" class="btn-secondary" @click="clearFinished">{{ $t('upload.clearFinished') }}</button>
+          <button type="button" class="btn-primary" @click="closeUploader">{{ $t('common.close') }}</button>
+        </div>
+      </div>
     </Modal>
 
     <Modal v-if="showNewFolder" :open="showNewFolder" :title="$t('file.newFolder')" size="sm" @close="showNewFolder = false">
@@ -72,12 +84,14 @@ import { useRouter } from 'vue-router';
 import { useFilesStore } from '@/stores/files.store';
 import { useUiStore } from '@/stores/ui.store';
 import { apiClient } from '@/api/client';
+import { useFileUpload } from '@/composables/useFileUpload';
 import AppHeader from '@/components/layout/AppHeader.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import AppFooter from '@/components/layout/AppFooter.vue';
 import FileBreadcrumb from '@/components/files/FileBreadcrumb.vue';
 import FileBrowser from '@/components/files/FileBrowser.vue';
 import FileUploader from '@/components/files/FileUploader.vue';
+import FileUploadProgress from '@/components/files/FileUploadProgress.vue';
 import FileContextMenu from '@/components/files/FileContextMenu.vue';
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue';
 import FileRenameDialog from '@/components/files/FileRenameDialog.vue';
@@ -91,6 +105,8 @@ type PublicShareLink = Omit<ShareLinkRow, 'password_hash'> & { has_password: boo
 const router = useRouter();
 const store = useFilesStore();
 const ui = useUiStore();
+const uploader = useFileUpload();
+const { uploads, hasUploads, cancelUpload, removeUpload, clearFinished } = uploader;
 
 const showUploader = ref(false);
 const showDeleteConfirm = ref(false);
@@ -129,20 +145,23 @@ function handleOpen(id: string): void {
 }
 
 async function handleUpload(files: File[]): Promise<void> {
-  showUploader.value = false;
-  for (const file of files) {
-    const form = new FormData();
-    form.append('file', file);
-    if (store.parentId) form.append('parent_id', store.parentId);
-
-    try {
-      await apiClient('/files/upload', { method: 'POST', body: form });
-      ui.addToast('success', `Uploaded: ${file.name}`);
-    } catch (e) {
-      ui.addToast('error', `Failed: ${file.name}: ${(e as Error).message}`);
-    }
-  }
+  const { completed, failed } = await uploader.uploadFiles(files, store.parentId);
   await store.loadFiles(store.parentId);
+
+  if (completed > 0) ui.addToast('success', `${completed} ${completed === 1 ? 'file' : 'files'} uploaded`);
+  if (failed > 0) ui.addToast('error', `${failed} ${failed === 1 ? 'upload' : 'uploads'} failed`);
+}
+
+async function retryUpload(id: string): Promise<void> {
+  const success = await uploader.retryUpload(id);
+  if (success) {
+    await store.loadFiles(store.parentId);
+    ui.addToast('success', 'Upload completed');
+  }
+}
+
+function closeUploader(): void {
+  showUploader.value = false;
 }
 
 async function createFolder(): Promise<void> {
