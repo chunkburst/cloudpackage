@@ -25,6 +25,11 @@ import { useRouter } from 'vue-router';
 import { apiClient } from '@/api/client';
 import { useUiStore } from '@/stores/ui.store';
 import type { FileRow } from '@cloudpackage/shared/types';
+
+interface SearchResult extends FileRow {
+  snippet?: string | null;
+  hit_source: 'name' | 'content';
+}
 import AppHeader from '@/components/layout/AppHeader.vue';
 import AppSidebar from '@/components/layout/AppSidebar.vue';
 import AppFooter from '@/components/layout/AppFooter.vue';
@@ -37,7 +42,7 @@ const router = useRouter();
 const ui = useUiStore();
 
 const query = ref('');
-const results = ref<FileRow[]>([]);
+const results = ref<SearchResult[]>([]);
 const loading = ref(false);
 const filters = ref<{ mimeType?: string; isDirectory?: boolean }>({});
 
@@ -47,7 +52,7 @@ async function doSearch(): Promise<void> {
     const params = new URLSearchParams({ query: query.value });
     if (filters.value.mimeType) params.set('mime_type', filters.value.mimeType);
     if (filters.value.isDirectory !== undefined) params.set('is_directory', String(filters.value.isDirectory));
-    const res = await apiClient<{ success: boolean; data: FileRow[] }>(`/search?${params}`);
+    const res = await apiClient<{ success: boolean; data: SearchResult[] }>(`/search?${params}`);
     results.value = res.data;
   } finally {
     loading.value = false;

@@ -102,7 +102,9 @@
     "placeholder": "Search files...",
     "results": "Search Results",
     "noResults": "No results found",
-    "suggestions": "Suggestions"
+    "suggestions": "Suggestions",
+    "nameMatch": "Name",
+    "contentMatch": "Content"
   },
   "settings": {
     "profile": "Profile",

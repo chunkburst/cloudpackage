@@ -7,6 +7,7 @@ import {
   ValidationError,
 } from '@cloudpackage/shared';
 import { StorageService } from './storage.service.js';
+import { SearchService } from './search.service.js';
 import type { Env } from '../env.js';
 import { PAGINATION_DEFAULT_PAGE, PAGINATION_DEFAULT_PAGE_SIZE, PAGINATION_MAX_PAGE_SIZE } from '@cloudpackage/shared';
 
@@ -221,7 +222,9 @@ export class FileService {
       checksum
     );
 
-    return this.getFile(created.id, userId);
+    const uploaded = await this.getFile(created.id, userId);
+    await this.indexContentIfText(uploaded, bytes);
+    return uploaded;
   }
 
   async getPresignedUploadUrl(
@@ -393,6 +396,7 @@ export class FileService {
       .run();
 
     const deletedSize = files.reduce((total, item) => total + item.size, 0);
+    await Promise.all(files.map((item) => new SearchService(this.env).removeFileFromContentIndex(item.id)));
     if (deletedSize > 0) {
       await this.env.DB.prepare(
         'UPDATE users SET used_storage = MAX(0, used_storage - ?) WHERE id = ?'
@@ -453,7 +457,18 @@ export class FileService {
       }
     }
 
-    return this.getFile(fileId, userId);
+    const moved = await this.getFile(fileId, userId);
+    await this.syncContentIndexMetadata(moved);
+    if (file.is_directory) {
+      const movedChildren = await this.env.DB.prepare(
+        'SELECT * FROM files WHERE owner_id = ? AND path LIKE ?'
+      )
+        .bind(file.owner_id, `${moved.path}/%`)
+        .all<FileRow>();
+      await Promise.all(movedChildren.results.map((child) => this.syncContentIndexMetadata(child)));
+    }
+
+    return moved;
   }
 
   async copyFile(
@@ -486,6 +501,12 @@ export class FileService {
         file.mime_type || 'application/octet-stream',
         file.checksum
       );
+
+      const copied = await this.getFile(copy.id, userId);
+      if (this.isTextFile(copied) && copied.size <= 1024 * 1024) {
+        const copiedBody = await this.storage.getObject(file.storage_id, file.storage_key!);
+        await new SearchService(this.env).indexFileContent(copied, await new Response(copiedBody.body).text());
+      }
     }
 
     return this.getFile(copy.id, userId);
@@ -541,6 +562,10 @@ export class FileService {
           fileId
         )
         .run();
+
+      const updated = await this.getFile(fileId, userId);
+      await this.syncContentIndexMetadata(updated);
+      return updated;
     }
 
     return this.getFile(fileId, userId);
@@ -582,7 +607,9 @@ export class FileService {
       checksum
     );
 
-    return this.getFile(file.id, userId);
+    const updated = await this.getFile(file.id, userId);
+    await this.indexContentIfText(updated, data);
+    return updated;
   }
 
   // ==============================
@@ -648,7 +675,23 @@ export class FileService {
       checksum
     );
 
-    return this.getFile(file.id, file.owner_id);
+    const updated = await this.getFile(file.id, file.owner_id);
+    await this.indexContentIfText(updated, bytes.buffer as ArrayBuffer);
+    return updated;
+  }
+
+  private async syncContentIndexMetadata(file: FileRow): Promise<void> {
+    await new SearchService(this.env).syncFileMetadata(file);
+  }
+
+  private async indexContentIfText(file: FileRow, data: ArrayBuffer): Promise<void> {
+    const search = new SearchService(this.env);
+    if (!this.isTextFile(file) || data.byteLength > 1024 * 1024) {
+      await search.removeFileFromContentIndex(file.id);
+      return;
+    }
+
+    await search.indexFileContent(file, new TextDecoder().decode(data));
   }
 
   private async updateUploadedFile(

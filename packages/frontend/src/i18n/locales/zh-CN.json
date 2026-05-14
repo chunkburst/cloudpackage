@@ -102,7 +102,9 @@
     "placeholder": "搜索文件...",
     "results": "搜索结果",
     "noResults": "未找到相关文件",
-    "suggestions": "搜索建议"
+    "suggestions": "搜索建议",
+    "nameMatch": "名称命中",
+    "contentMatch": "内容命中"
   },
   "settings": {
     "profile": "个人资料",
